@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { TrendingUp, Wallet, ArrowDownToLine, ArrowUpFromLine } from "lucide-react";
-import { useAccount } from "wagmi";
+import { TrendingUp, Wallet, ArrowDownToLine, ArrowUpFromLine, ShieldCheck, Zap, Globe } from "lucide-react";
+import { useAccount, useChainId } from "wagmi";
+import { celo } from "wagmi/chains";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ConnectButton } from "@/components/connect-button";
@@ -14,17 +15,40 @@ import { getPrincipal } from "@/lib/savings-store";
 import { formatUnits } from "@/lib/aave-utils";
 import { truncateAddress } from "@/lib/app-utils";
 
+function TrustBadge({ icon, label }: { icon: React.ReactNode; label: string }) {
+  return (
+    <div className="flex items-center gap-1.5 bg-primary/8 border border-primary/20 text-primary rounded-full px-3 py-1 text-xs font-medium">
+      {icon}
+      {label}
+    </div>
+  );
+}
+
+function WrongNetworkBanner() {
+  return (
+    <div className="mx-4 mb-4 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-2">
+      <Globe className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+      <div>
+        <p className="text-sm font-medium text-amber-800">Switch to Celo Mainnet</p>
+        <p className="text-xs text-amber-600 mt-0.5">
+          Your wallet is on a different network. Balances and transactions require Celo.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export function SavingsDashboard() {
-  const { address, isConnected, chainId } = useAccount();
+  const { address, isConnected } = useAccount();
+  const chainId = useChainId();
   const isMiniPay = useIsMiniPay();
+  const isWrongNetwork = isConnected && chainId !== celo.id;
 
   const { apy, isLoading: apyLoading } = useAaveAPY();
   const { balance: aTokenBalance, refetch: refetchAToken } = useATokenBalance();
   const { balance: usdtBalance, refetch: refetchUsdt } = useUsdtBalance();
 
-  const principal = address
-    ? getPrincipal(chainId ?? 42220, address, "USDT")
-    : 0n;
+  const principal = address ? getPrincipal(chainId ?? celo.id, address, "USDT") : 0n;
   const yield_ = aTokenBalance > principal ? aTokenBalance - principal : 0n;
 
   const [depositOpen, setDepositOpen] = useState(false);
@@ -37,25 +61,63 @@ export function SavingsDashboard() {
 
   if (!isConnected) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6 px-4">
-        <div className="text-center space-y-3">
-          <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
-            <TrendingUp className="h-8 w-8 text-primary" />
+      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] gap-0 px-4 pb-8">
+        {/* Hero */}
+        <div className="text-center space-y-4 mb-8 mt-4">
+          <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
+            <TrendingUp className="h-10 w-10 text-primary" />
           </div>
-          <h2 className="text-xl font-semibold">Start saving with CeloSave</h2>
-          <p className="text-sm text-muted-foreground max-w-xs">
-            Deposit USDT to earn yield on Aave V3. No CELO needed for gas.
-          </p>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Save money. Earn yield.</h1>
+            <p className="text-sm text-muted-foreground mt-1.5 max-w-xs mx-auto leading-relaxed">
+              Deposit USDT and earn up to{" "}
+              <span className="font-semibold text-primary">
+                {apyLoading ? "…" : apy !== null ? `${apy.toFixed(2)}%` : "—"} APY
+              </span>{" "}
+              on Aave V3 — no CELO needed for gas.
+            </p>
+          </div>
         </div>
+
+        {/* Trust badges */}
+        <div className="flex flex-wrap justify-center gap-2 mb-8">
+          <TrustBadge icon={<ShieldCheck className="h-3 w-3" />} label="Aave V3 · Audited" />
+          <TrustBadge icon={<Zap className="h-3 w-3" />} label="Gasless in USDT" />
+          <TrustBadge icon={<Globe className="h-3 w-3" />} label="Celo Mainnet" />
+        </div>
+
+        {/* Protocol card */}
+        <Card className="w-full max-w-sm mb-8 border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10">
+          <CardContent className="pt-5 pb-5 space-y-3">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Current USDT APY</span>
+              <span className="font-bold text-primary text-base">
+                {apyLoading ? "Loading…" : apy !== null ? `${apy.toFixed(2)}%` : "—"}
+              </span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Protocol</span>
+              <span className="font-medium">Aave V3 on Celo</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Gas</span>
+              <span className="font-medium">Paid in USDT</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Protocol fee</span>
+              <span className="font-medium">0.30% on yield only</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Connect */}
         {!isMiniPay && (
-          <div className="flex justify-center">
+          <div className="w-full max-w-sm">
             <ConnectButton />
           </div>
         )}
         {isMiniPay && (
-          <p className="text-sm text-muted-foreground">
-            Connecting your MiniPay wallet…
-          </p>
+          <p className="text-sm text-muted-foreground">Connecting your MiniPay wallet…</p>
         )}
       </div>
     );
@@ -63,77 +125,84 @@ export function SavingsDashboard() {
 
   return (
     <>
-      <div className="flex flex-col gap-4 px-4 py-6 max-w-md mx-auto">
+      {isWrongNetwork && <WrongNetworkBanner />}
+
+      <div className="flex flex-col gap-4 px-4 py-5 max-w-md mx-auto">
         {/* Wallet chip */}
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Wallet className="h-4 w-4" />
+          <div className="w-2 h-2 rounded-full bg-primary shrink-0" />
           <span className="font-mono">{truncateAddress(address!)}</span>
           {isMiniPay && (
             <span className="ml-auto text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">
               MiniPay
             </span>
           )}
+          {!isMiniPay && (
+            <span className="ml-auto text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full">
+              Celo
+            </span>
+          )}
         </div>
 
-        {/* Savings card */}
-        <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-primary" />
+        {/* Savings hero card */}
+        <Card className="border-primary/25 bg-gradient-to-br from-primary/8 via-primary/5 to-transparent shadow-sm">
+          <CardHeader className="pb-1 pt-5">
+            <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+              <TrendingUp className="h-3.5 w-3.5 text-primary" />
               Total Savings
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-1">
-              <p className="text-4xl font-bold tracking-tight">
+          <CardContent className="pb-5">
+            <div className="space-y-2">
+              <p className="text-4xl font-bold tracking-tight tabular-nums">
                 ${formatUnits(aTokenBalance)}
-                <span className="text-lg font-normal text-muted-foreground ml-1">
-                  USDT
+                <span className="text-lg font-normal text-muted-foreground ml-1.5">USDT</span>
+              </p>
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1 bg-primary/10 text-primary text-xs font-semibold px-2.5 py-1 rounded-full">
+                  <TrendingUp className="h-3 w-3" />
+                  {apyLoading ? "Loading…" : apy !== null ? `${apy.toFixed(2)}% APY` : "—"}
                 </span>
-              </p>
-              <p className="text-sm text-primary font-medium">
-                APY:{" "}
-                {apyLoading
-                  ? "Loading…"
-                  : apy !== null
-                  ? `${apy.toFixed(2)}%`
-                  : "—"}{" "}
-                · Aave V3
-              </p>
+                <span className="text-xs text-muted-foreground">· Aave V3 · Celo</span>
+              </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Stats row */}
         <div className="grid grid-cols-2 gap-3">
-          <Card>
+          <Card className="border-border/60">
             <CardContent className="pt-4 pb-3">
-              <p className="text-xs text-muted-foreground mb-1">Deposited</p>
-              <p className="text-lg font-semibold">${formatUnits(principal)}</p>
+              <p className="text-xs text-muted-foreground mb-0.5">Deposited</p>
+              <p className="text-lg font-semibold tabular-nums">${formatUnits(principal)}</p>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="border-primary/20">
             <CardContent className="pt-4 pb-3">
-              <p className="text-xs text-muted-foreground mb-1">Yield Earned</p>
-              <p className="text-lg font-semibold text-primary">
+              <p className="text-xs text-muted-foreground mb-0.5">Yield Earned</p>
+              <p className="text-lg font-semibold text-primary tabular-nums">
                 +${formatUnits(yield_)}
               </p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Wallet USDT balance */}
-        <div className="text-sm text-center text-muted-foreground">
-          Wallet balance: ${formatUnits(usdtBalance)} USDT available
+        {/* Wallet balance */}
+        <div className="flex items-center justify-between bg-muted/60 rounded-xl px-4 py-3">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Wallet className="h-4 w-4" />
+            <span>Wallet</span>
+          </div>
+          <span className="text-sm font-semibold tabular-nums">${formatUnits(usdtBalance)} USDT</span>
         </div>
 
         {/* Action buttons */}
-        <div className="grid grid-cols-2 gap-3 mt-2">
+        <div className="grid grid-cols-2 gap-3">
           <Button
             size="lg"
-            className="flex-1"
+            className="w-full font-semibold"
             onClick={() => setDepositOpen(true)}
-            disabled={usdtBalance === 0n}
+            disabled={isWrongNetwork}
           >
             <ArrowDownToLine className="h-4 w-4 mr-2" />
             Deposit
@@ -141,18 +210,29 @@ export function SavingsDashboard() {
           <Button
             size="lg"
             variant="outline"
-            className="flex-1"
+            className="w-full font-semibold border-primary/30 hover:bg-primary/5"
             onClick={() => setWithdrawOpen(true)}
-            disabled={aTokenBalance === 0n}
+            disabled={aTokenBalance === 0n || isWrongNetwork}
           >
             <ArrowUpFromLine className="h-4 w-4 mr-2" />
             Withdraw
           </Button>
         </div>
 
-        <p className="text-xs text-center text-muted-foreground">
-          0.30% protocol fee on yield only · Gas paid in USDT
-        </p>
+        {/* Trust footer */}
+        <div className="flex items-center justify-center gap-3 pt-1 pb-2">
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <ShieldCheck className="h-3.5 w-3.5 text-primary" />
+            <span>Non-custodial</span>
+          </div>
+          <div className="w-px h-3 bg-border" />
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Zap className="h-3.5 w-3.5 text-primary" />
+            <span>Gas in USDT</span>
+          </div>
+          <div className="w-px h-3 bg-border" />
+          <span className="text-xs text-muted-foreground">0.30% fee on yield</span>
+        </div>
       </div>
 
       <DepositModal
@@ -164,7 +244,6 @@ export function SavingsDashboard() {
         }}
         apy={apy}
       />
-
       <WithdrawModal
         open={withdrawOpen}
         onClose={() => setWithdrawOpen(false)}

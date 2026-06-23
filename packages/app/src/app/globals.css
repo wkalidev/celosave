@@ -8,7 +8,7 @@
     --input: 216 33% 97%;
     --ring: 215 20.2% 65.1%;
 
-    --background: 0 0% 100%;
+    --background: 150 20% 98%;
     --foreground: 222.2 84% 4.9%;
 
     --card: 0 0% 100%;
@@ -26,7 +26,7 @@
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
   }
 
   .dark {

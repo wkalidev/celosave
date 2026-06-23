@@ -19,11 +19,34 @@ const navLinks = [
   { name: "Docs", href: "https://docs.celo.org", external: true },
 ];
 
+function Logo({ size = 32 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 36 36"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-label="CeloSave logo"
+    >
+      <circle cx="18" cy="18" r="18" fill="#07955F" />
+      <path
+        d="M9 25 L14 19 L18 22 L25 13"
+        stroke="white"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="25" cy="13" r="2.5" fill="#FBCC5C" />
+    </svg>
+  );
+}
+
 export function Navbar() {
   const pathname = usePathname();
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-50 w-full border-b bg-background/90 backdrop-blur-md">
       <div className="container flex h-16 max-w-screen-2xl items-center justify-between px-4">
         <div className="flex items-center gap-2">
           <Sheet>
@@ -34,7 +57,8 @@ export function Navbar() {
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="w-80">
-              <div className="flex items-center gap-2 mb-8">
+              <div className="flex items-center gap-2.5 mb-8">
+                <Logo size={28} />
                 <span className="font-bold text-lg">CeloSave</span>
               </div>
               <nav className="flex flex-col gap-4">
@@ -63,9 +87,10 @@ export function Navbar() {
 
           <Link
             href="/"
-            className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+            className="flex items-center gap-2.5 hover:opacity-80 transition-opacity"
           >
-            <span className="font-bold text-xl">CeloSave</span>
+            <Logo size={28} />
+            <span className="font-bold text-xl tracking-tight">CeloSave</span>
           </Link>
         </div>
 

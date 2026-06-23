@@ -75,6 +75,13 @@ export function DepositModal({ open, onClose, onSuccess, apy }: DepositModalProp
           </div>
         ) : (
           <div className="flex flex-col gap-5">
+            {/* Zero-balance notice */}
+            {usdtBalance === 0n && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-700">
+                Your wallet has no USDT. Add USDT on Celo to start saving.
+              </div>
+            )}
+
             {/* Amount input */}
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
@@ -82,6 +89,7 @@ export function DepositModal({ open, onClose, onSuccess, apy }: DepositModalProp
                 <button
                   className="text-primary font-medium"
                   onClick={() => setInputValue(formatUnits(usdtBalance))}
+                  disabled={usdtBalance === 0n}
                 >
                   Max: {formatUnits(usdtBalance)}
                 </button>
