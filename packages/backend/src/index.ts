@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import airtimeRouter from "./routes/airtime";
+import analyticsRouter from "./routes/analytics";
 
 dotenv.config();
 
@@ -16,6 +17,7 @@ app.get("/health", (_req, res) => {
 });
 
 app.use("/api/airtime", airtimeRouter);
+app.use("/api/analytics", analyticsRouter);
 
 app.listen(PORT, () => {
   console.log(`CeloSave backend running on port ${PORT}`);
