@@ -1,0 +1,14 @@
+{
+  "name": "celosave",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --filter app dev",
+    "build": "pnpm --filter app build",
+    "lint": "pnpm --filter app lint",
+    "backend": "pnpm --filter backend dev"
+  },
+  "devDependencies": {
+    "typescript": "^5.2.2"
+  }
+}
