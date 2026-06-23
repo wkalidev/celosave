@@ -21,6 +21,7 @@ export interface AirtimeRecipient {
 
 export interface AirtimeResult {
   numSent: number;
+  errorMessage?: string; // top-level error from AT (e.g. duplicate request)
   totalAmount: string;
   totalDiscount: string;
   responses: Array<{

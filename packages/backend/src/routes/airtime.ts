@@ -87,15 +87,16 @@ router.post("/topup", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Quote expired or not found" });
     }
 
-    // Verify the on-chain payment
-    const verification = await verifyUsdtTransfer(
-      txHash as `0x${string}`,
-      TREASURY,
-      quote.usdtRaw
-    );
-
-    if (!verification.valid) {
-      return res.status(402).json({ error: `Payment invalid: ${verification.reason}` });
+    // Verify the on-chain payment (skipped in sandbox mode)
+    if (process.env.SANDBOX_SKIP_VERIFY !== "true") {
+      const verification = await verifyUsdtTransfer(
+        txHash as `0x${string}`,
+        TREASURY,
+        quote.usdtRaw
+      );
+      if (!verification.valid) {
+        return res.status(402).json({ error: `Payment invalid: ${verification.reason}` });
+      }
     }
 
     // Send airtime via Africa's Talking
@@ -105,12 +106,23 @@ router.post("/topup", async (req: Request, res: Response) => {
       amount: quote.localAmount,
     });
 
+    // Top-level error from AT (e.g. duplicate request, auth failure)
+    if (result.numSent === 0 && result.errorMessage && result.errorMessage !== "None") {
+      return res.status(502).json({ error: `Airtime provider error: ${result.errorMessage}` });
+    }
+
     const response = result.responses?.[0];
     if (!response) {
       return res.status(502).json({ error: "No response from airtime provider" });
     }
 
-    if (response.status === "Success") {
+    // AT sandbox returns "Success" or "Sent" depending on country/operator
+    const isSuccess =
+      response.status === "Success" ||
+      response.status === "Sent" ||
+      (response.errorMessage === "None" && result.numSent > 0);
+
+    if (isSuccess) {
       return res.json({
         success: true,
         requestId: response.requestId,
