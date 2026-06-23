@@ -9,11 +9,12 @@ import { Button } from "@/components/ui/button";
 import { ConnectButton } from "@/components/connect-button";
 import { DepositModal } from "@/components/deposit-modal";
 import { WithdrawModal } from "@/components/withdraw-modal";
-import { useAaveAPY, useATokenBalance, useUsdtBalance } from "@/hooks/useAaveData";
+import { useAaveAPY, useATokenBalance, useTokenBalance } from "@/hooks/useAaveData";
 import { useIsMiniPay } from "@/hooks/useMiniPay";
 import { getPrincipal } from "@/lib/savings-store";
 import { formatUnits } from "@/lib/aave-utils";
 import { truncateAddress } from "@/lib/app-utils";
+import type { SupportedToken } from "@/lib/contracts";
 
 function TrustBadge({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
@@ -38,31 +39,33 @@ function WrongNetworkBanner() {
   );
 }
 
+const TOKENS: SupportedToken[] = ["USDT", "USDC"];
+
 export function SavingsDashboard() {
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
   const isMiniPay = useIsMiniPay();
   const isWrongNetwork = isConnected && chainId !== celo.id;
 
-  const { apy, isLoading: apyLoading } = useAaveAPY();
-  const { balance: aTokenBalance, refetch: refetchAToken } = useATokenBalance();
-  const { balance: usdtBalance, refetch: refetchUsdt } = useUsdtBalance();
-
-  const principal = address ? getPrincipal(chainId ?? celo.id, address, "USDT") : 0n;
-  const yield_ = aTokenBalance > principal ? aTokenBalance - principal : 0n;
-
+  const [selectedToken, setSelectedToken] = useState<SupportedToken>("USDT");
   const [depositOpen, setDepositOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
 
+  const { apy, isLoading: apyLoading } = useAaveAPY(selectedToken);
+  const { balance: aTokenBalance, refetch: refetchAToken } = useATokenBalance(selectedToken);
+  const { balance: walletBalance, refetch: refetchWallet } = useTokenBalance(selectedToken);
+
+  const principal = address ? getPrincipal(chainId ?? celo.id, address, selectedToken) : 0n;
+  const yield_ = aTokenBalance > principal ? aTokenBalance - principal : 0n;
+
   function handleSuccess() {
     refetchAToken();
-    refetchUsdt();
+    refetchWallet();
   }
 
   if (!isConnected) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] gap-0 px-4 pb-8">
-        {/* Hero */}
         <div className="text-center space-y-4 mb-8 mt-4">
           <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
             <TrendingUp className="h-10 w-10 text-primary" />
@@ -70,7 +73,7 @@ export function SavingsDashboard() {
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Save money. Earn yield.</h1>
             <p className="text-sm text-muted-foreground mt-1.5 max-w-xs mx-auto leading-relaxed">
-              Deposit USDT and earn up to{" "}
+              Deposit USDT or USDC and earn up to{" "}
               <span className="font-semibold text-primary">
                 {apyLoading ? "…" : apy !== null ? `${apy.toFixed(2)}%` : "—"} APY
               </span>{" "}
@@ -79,20 +82,24 @@ export function SavingsDashboard() {
           </div>
         </div>
 
-        {/* Trust badges */}
         <div className="flex flex-wrap justify-center gap-2 mb-8">
           <TrustBadge icon={<ShieldCheck className="h-3 w-3" />} label="Aave V3 · Audited" />
-          <TrustBadge icon={<Zap className="h-3 w-3" />} label="Gasless in USDT" />
+          <TrustBadge icon={<Zap className="h-3 w-3" />} label="Gasless in USDT/USDC" />
           <TrustBadge icon={<Globe className="h-3 w-3" />} label="Celo Mainnet" />
         </div>
 
-        {/* Protocol card */}
         <Card className="w-full max-w-sm mb-8 border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10">
           <CardContent className="pt-5 pb-5 space-y-3">
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Current USDT APY</span>
+              <span className="text-muted-foreground">USDT APY</span>
               <span className="font-bold text-primary text-base">
-                {apyLoading ? "Loading…" : apy !== null ? `${apy.toFixed(2)}%` : "—"}
+                <ApyLabel token="USDT" />
+              </span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">USDC APY</span>
+              <span className="font-bold text-primary text-base">
+                <ApyLabel token="USDC" />
               </span>
             </div>
             <div className="flex justify-between text-sm">
@@ -101,16 +108,11 @@ export function SavingsDashboard() {
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Gas</span>
-              <span className="font-medium">Paid in USDT</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Protocol fee</span>
-              <span className="font-medium">0.30% on yield only</span>
+              <span className="font-medium">Paid in USDT or USDC</span>
             </div>
           </CardContent>
         </Card>
 
-        {/* Connect */}
         {!isMiniPay && (
           <div className="w-full max-w-sm">
             <ConnectButton />
@@ -132,16 +134,32 @@ export function SavingsDashboard() {
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <div className="w-2 h-2 rounded-full bg-primary shrink-0" />
           <span className="font-mono">{truncateAddress(address!)}</span>
-          {isMiniPay && (
+          {isMiniPay ? (
             <span className="ml-auto text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">
               MiniPay
             </span>
-          )}
-          {!isMiniPay && (
+          ) : (
             <span className="ml-auto text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full">
               Celo
             </span>
           )}
+        </div>
+
+        {/* Token selector */}
+        <div className="flex bg-muted rounded-xl p-1 gap-1">
+          {TOKENS.map((t) => (
+            <button
+              key={t}
+              onClick={() => setSelectedToken(t)}
+              className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-colors ${
+                selectedToken === t
+                  ? "bg-background shadow-sm text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {t}
+            </button>
+          ))}
         </div>
 
         {/* Savings hero card */}
@@ -149,14 +167,14 @@ export function SavingsDashboard() {
           <CardHeader className="pb-1 pt-5">
             <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
               <TrendingUp className="h-3.5 w-3.5 text-primary" />
-              Total Savings
+              {selectedToken} Savings
             </CardTitle>
           </CardHeader>
           <CardContent className="pb-5">
             <div className="space-y-2">
               <p className="text-4xl font-bold tracking-tight tabular-nums">
                 ${formatUnits(aTokenBalance)}
-                <span className="text-lg font-normal text-muted-foreground ml-1.5">USDT</span>
+                <span className="text-lg font-normal text-muted-foreground ml-1.5">{selectedToken}</span>
               </p>
               <div className="flex items-center gap-2">
                 <span className="inline-flex items-center gap-1 bg-primary/10 text-primary text-xs font-semibold px-2.5 py-1 rounded-full">
@@ -193,7 +211,9 @@ export function SavingsDashboard() {
             <Wallet className="h-4 w-4" />
             <span>Wallet</span>
           </div>
-          <span className="text-sm font-semibold tabular-nums">${formatUnits(usdtBalance)} USDT</span>
+          <span className="text-sm font-semibold tabular-nums">
+            ${formatUnits(walletBalance)} {selectedToken}
+          </span>
         </div>
 
         {/* Action buttons */}
@@ -228,31 +248,32 @@ export function SavingsDashboard() {
           <div className="w-px h-3 bg-border" />
           <div className="flex items-center gap-1 text-xs text-muted-foreground">
             <Zap className="h-3.5 w-3.5 text-primary" />
-            <span>Gas in USDT</span>
+            <span>Gas in {selectedToken}</span>
           </div>
-          <div className="w-px h-3 bg-border" />
-          <span className="text-xs text-muted-foreground">0.30% fee on yield</span>
         </div>
       </div>
 
       <DepositModal
         open={depositOpen}
+        token={selectedToken}
         onClose={() => setDepositOpen(false)}
-        onSuccess={() => {
-          setDepositOpen(false);
-          handleSuccess();
-        }}
+        onSuccess={() => { setDepositOpen(false); handleSuccess(); }}
         apy={apy}
       />
       <WithdrawModal
         open={withdrawOpen}
+        token={selectedToken}
         onClose={() => setWithdrawOpen(false)}
-        onSuccess={() => {
-          setWithdrawOpen(false);
-          handleSuccess();
-        }}
+        onSuccess={() => { setWithdrawOpen(false); handleSuccess(); }}
         aTokenBalance={aTokenBalance}
       />
     </>
   );
+}
+
+function ApyLabel({ token }: { token: SupportedToken }) {
+  const { apy, isLoading } = useAaveAPY(token);
+  if (isLoading) return <>…</>;
+  if (apy === null) return <>—</>;
+  return <>{apy.toFixed(2)}%</>;
 }

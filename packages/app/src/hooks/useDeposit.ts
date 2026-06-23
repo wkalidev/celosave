@@ -4,16 +4,12 @@ import { useState } from "react";
 import { useAccount, useWalletClient, usePublicClient } from "wagmi";
 import { encodeFunctionData } from "viem";
 import { erc20Abi, aavePoolAbi } from "@/lib/abis";
-import {
-  USDT,
-  AAVE_POOL,
-  USDT_FEE_ADAPTER,
-} from "@/lib/contracts";
+import { AAVE_POOL, getTokenContracts, type SupportedToken } from "@/lib/contracts";
 import { addDeposit } from "@/lib/savings-store";
 
 export type DepositStep = "idle" | "approving" | "supplying" | "success" | "error";
 
-export function useDeposit() {
+export function useDeposit(token: SupportedToken) {
   const { address, chainId } = useAccount();
   const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient();
@@ -28,51 +24,48 @@ export function useDeposit() {
       return;
     }
 
+    const { token: tokenAddress, feeAdapter } = getTokenContracts(token);
+
     setError(null);
     setStep("approving");
 
     try {
-      // Step 1: Approve Aave Pool to spend USDT
-      // feeCurrency pays gas in USDT via CIP-64 (no CELO balance needed)
+      // Step 1: Approve Aave Pool to spend token
       const approveHash = await walletClient.sendTransaction({
         account: address,
-        to: USDT,
+        to: tokenAddress,
         data: encodeFunctionData({
           abi: erc20Abi,
           functionName: "approve",
           args: [AAVE_POOL, amount],
         }),
-        // @ts-ignore — Celo CIP-64 extension; feeCurrency adapter pays gas in USDT
-        feeCurrency: USDT_FEE_ADAPTER,
+        // @ts-ignore — Celo CIP-64: pay gas in stablecoin, no CELO needed
+        feeCurrency: feeAdapter,
       });
 
       await publicClient.waitForTransactionReceipt({ hash: approveHash });
-
       setStep("supplying");
 
-      // Step 2: Supply USDT into Aave V3
+      // Step 2: Supply into Aave V3
       const supplyHash = await walletClient.sendTransaction({
         account: address,
         to: AAVE_POOL,
         data: encodeFunctionData({
           abi: aavePoolAbi,
           functionName: "supply",
-          args: [USDT, amount, address, 0],
+          args: [tokenAddress, amount, address, 0],
         }),
-        // @ts-ignore — Celo CIP-64 extension
-        feeCurrency: USDT_FEE_ADAPTER,
+        // @ts-ignore — Celo CIP-64
+        feeCurrency: feeAdapter,
       });
 
       await publicClient.waitForTransactionReceipt({ hash: supplyHash });
 
-      // Record principal for yield tracking
-      addDeposit(chainId ?? 42220, address, "USDT", amount);
-
+      addDeposit(chainId ?? 42220, address, token, amount);
       setTxHash(supplyHash);
       setStep("success");
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Transaction failed";
-      setError(msg);
+      setError(e instanceof Error ? e.message : "Transaction failed");
       setStep("error");
     }
   }

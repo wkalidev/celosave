@@ -27,6 +27,11 @@ export const SF_SUPER_TOKEN_FACTORY = "0x36be86dEe6BC726Ed0Cbd170ccD2F21760BC73D
 // USDT and USDC both use 6 decimals on Celo (not 18)
 export const DECIMALS = 6;
 
-// 0.30% protocol fee on yield portion only
-export const PROTOCOL_FEE_BPS = 30n;
-export const BPS_DENOMINATOR = 10000n;
+export type SupportedToken = "USDT" | "USDC";
+
+export function getTokenContracts(token: SupportedToken) {
+  if (token === "USDC") {
+    return { token: USDC, aToken: USDC_A_TOKEN, feeAdapter: USDC_FEE_ADAPTER };
+  }
+  return { token: USDT, aToken: USDT_A_TOKEN, feeAdapter: USDT_FEE_ADAPTER };
+}

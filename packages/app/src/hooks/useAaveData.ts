@@ -1,34 +1,35 @@
 "use client";
 
-import { useReadContract } from "wagmi";
-import { useAccount } from "wagmi";
+import { useReadContract, useAccount } from "wagmi";
 import { celo } from "wagmi/chains";
 import { aaveDataProviderAbi, erc20Abi } from "@/lib/abis";
-import { AAVE_DATA_PROVIDER, USDT, USDT_A_TOKEN } from "@/lib/contracts";
+import { AAVE_DATA_PROVIDER, getTokenContracts, type SupportedToken } from "@/lib/contracts";
 import { liquidityRateToAPY } from "@/lib/aave-utils";
 
-// All reads are pinned to Celo mainnet (chainId 42220) so they work even if
-// the connected wallet is on a different network.
+// All reads are pinned to Celo mainnet so they work regardless of
+// which network the connected wallet reports.
 
-export function useAaveAPY() {
+export function useAaveAPY(token: SupportedToken = "USDT") {
+  const { token: tokenAddress } = getTokenContracts(token);
+
   const { data, isLoading } = useReadContract({
     address: AAVE_DATA_PROVIDER,
     abi: aaveDataProviderAbi,
     functionName: "getReserveData",
-    args: [USDT],
+    args: [tokenAddress],
     chainId: celo.id,
   });
 
   const apy = data ? liquidityRateToAPY(data[5]) : null;
-
   return { apy, isLoading };
 }
 
-export function useATokenBalance() {
+export function useATokenBalance(token: SupportedToken = "USDT") {
   const { address } = useAccount();
+  const { aToken } = getTokenContracts(token);
 
   const { data: balance, isLoading, refetch } = useReadContract({
-    address: USDT_A_TOKEN,
+    address: aToken,
     abi: erc20Abi,
     functionName: "balanceOf",
     args: [address ?? "0x0000000000000000000000000000000000000000"],
@@ -39,11 +40,12 @@ export function useATokenBalance() {
   return { balance: balance ?? 0n, isLoading, refetch };
 }
 
-export function useUsdtBalance() {
+export function useTokenBalance(token: SupportedToken = "USDT") {
   const { address } = useAccount();
+  const { token: tokenAddress } = getTokenContracts(token);
 
   const { data: balance, isLoading, refetch } = useReadContract({
-    address: USDT,
+    address: tokenAddress,
     abi: erc20Abi,
     functionName: "balanceOf",
     args: [address ?? "0x0000000000000000000000000000000000000000"],
@@ -52,22 +54,4 @@ export function useUsdtBalance() {
   });
 
   return { balance: balance ?? 0n, isLoading, refetch };
-}
-
-export function useUsdtAllowance() {
-  const { address } = useAccount();
-
-  const { data: allowance, refetch } = useReadContract({
-    address: USDT,
-    abi: erc20Abi,
-    functionName: "allowance",
-    args: [
-      address ?? "0x0000000000000000000000000000000000000000",
-      AAVE_DATA_PROVIDER,
-    ],
-    chainId: celo.id,
-    query: { enabled: !!address },
-  });
-
-  return { allowance: allowance ?? 0n, refetch };
 }
