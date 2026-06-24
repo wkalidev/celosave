@@ -14,8 +14,36 @@ export const AAVE_DATA_PROVIDER = "0x2e0f8D3B1631296cC7c56538D6Eb6032601E15ED" a
 export const USDT_A_TOKEN = "0xDeE98402A302e4D707fB9bf2bac66fAEEc31e8Df" as const;
 export const USDC_A_TOKEN = "0xFF8309b9e99bfd2D4021bc71a362aBD93dBd4785" as const;
 
-// Protocol treasury — receives 0.30% yield fee on withdrawals and subscription streams
+// Protocol treasury — receives subscription streams and bill-pay markup
 export const TREASURY = "0x3AC95343494979d0c92195D387D278DCB3d6d595" as const;
+
+// CeloSaveRegistry — deployed 2026-06-24 from treasury wallet, tx 0xdf2ea05c655482f9a2adf27d3f91d8f8b05be74a103364e222d0d271f79cd2b4
+export const REGISTRY = "0x9213CBE6c3aFf7c1422038d91ECb2362E6907e83" as const;
+
+export const registryAbi = [
+  {
+    name: "register",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [],
+    outputs: [],
+  },
+  {
+    name: "isRegistered",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "", type: "address" }],
+    outputs: [{ name: "", type: "bool" }],
+  },
+  {
+    name: "UserRegistered",
+    type: "event",
+    inputs: [
+      { name: "user", type: "address", indexed: true },
+      { name: "timestamp", type: "uint256", indexed: false },
+    ],
+  },
+] as const;
 
 // Superfluid on Celo mainnet — source: @superfluid-finance/metadata v1.6.3, chainId 42220
 export const SF_HOST = "0xA4Ff07cF81C02CFD356184879D953970cA957585" as const;

@@ -17,3 +17,8 @@ Thumbs.db
 .turbo/
 
 .vercel
+
+# Foundry build artifacts
+packages/contracts/out/
+packages/contracts/cache/
+packages/contracts/.forge-cache/
