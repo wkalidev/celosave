@@ -5,4 +5,7 @@ libs = ["lib"]
 solc = "0.8.20"
 
 [rpc_endpoints]
-celo = "https://celo-mainnet.g.alchemy.com/v2/3icJduc9o35VkVv2eDozr"
+celo = "${CELO_RPC_URL}"
+
+[etherscan]
+celo = { key = "${CELOSCAN_API_KEY}", chain = 42220, url = "https://api.etherscan.io/v2/api?chainid=42220" }
