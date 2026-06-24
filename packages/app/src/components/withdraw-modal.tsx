@@ -91,7 +91,7 @@ export function WithdrawModal({ open, token, onClose, onSuccess, aTokenBalance }
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Yield earned</span>
-                  <span className="text-primary">+${formatUnits(yield_)}</span>
+                  <span className="text-primary-dark">+${formatUnits(yield_)}</span>
                 </div>
               </div>
               <div className="border-t pt-3 flex justify-between font-semibold">

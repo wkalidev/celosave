@@ -92,7 +92,7 @@ export function DepositModal({ open, token, onClose, onSuccess, apy }: DepositMo
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Amount ({token})</span>
                 <button
-                  className="text-primary font-medium disabled:opacity-40"
+                  className="text-primary-dark font-medium disabled:opacity-40"
                   onClick={() => setInputValue(formatUnits(balance))}
                   disabled={balance === 0n}
                 >
@@ -118,7 +118,7 @@ export function DepositModal({ open, token, onClose, onSuccess, apy }: DepositMo
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Current APY</span>
-                <span className="font-medium text-primary">
+                <span className="font-medium text-primary-dark">
                   {apy !== null ? `${apy.toFixed(2)}%` : "—"}
                 </span>
               </div>

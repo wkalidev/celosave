@@ -18,7 +18,7 @@ import type { SupportedToken } from "@/lib/contracts";
 
 function TrustBadge({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
-    <div className="flex items-center gap-1.5 bg-primary/8 border border-primary/20 text-primary rounded-full px-3 py-1 text-xs font-medium">
+    <div className="flex items-center gap-1.5 bg-primary/8 border border-primary/20 text-primary-dark rounded-full px-3 py-1 text-xs font-medium">
       {icon}
       {label}
     </div>
@@ -77,7 +77,7 @@ export function SavingsDashboard() {
             <h1 className="text-2xl font-bold tracking-tight">Save money. Earn yield.</h1>
             <p className="text-sm text-muted-foreground mt-1.5 max-w-xs mx-auto leading-relaxed">
               Deposit USDT or USDC and earn up to{" "}
-              <span className="font-semibold text-primary">
+              <span className="font-semibold text-primary-dark">
                 {apyLoading ? "…" : apy !== null ? `${apy.toFixed(2)}%` : "—"} APY
               </span>{" "}
               on Aave V3 — no CELO needed for gas.
@@ -95,13 +95,13 @@ export function SavingsDashboard() {
           <CardContent className="pt-5 pb-5 space-y-3">
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">USDT APY</span>
-              <span className="font-bold text-primary text-base">
+              <span className="font-bold text-primary-dark text-base">
                 <ApyLabel token="USDT" />
               </span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">USDC APY</span>
-              <span className="font-bold text-primary text-base">
+              <span className="font-bold text-primary-dark text-base">
                 <ApyLabel token="USDC" />
               </span>
             </div>
@@ -138,7 +138,7 @@ export function SavingsDashboard() {
           <div className="w-2 h-2 rounded-full bg-primary shrink-0" />
           <span className="font-mono">{truncateAddress(address!)}</span>
           {isMiniPay ? (
-            <span className="ml-auto text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">
+            <span className="ml-auto text-xs bg-primary/10 text-primary-dark px-2 py-0.5 rounded-full font-medium">
               MiniPay
             </span>
           ) : (
@@ -180,7 +180,7 @@ export function SavingsDashboard() {
                 <span className="text-lg font-normal text-muted-foreground ml-1.5">{selectedToken}</span>
               </p>
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-1 bg-primary/10 text-primary text-xs font-semibold px-2.5 py-1 rounded-full">
+                <span className="inline-flex items-center gap-1 bg-primary/10 text-primary-dark text-xs font-semibold px-2.5 py-1 rounded-full">
                   <TrendingUp className="h-3 w-3" />
                   {apyLoading ? "Loading…" : apy !== null ? `${apy.toFixed(2)}% APY` : "—"}
                 </span>
@@ -201,7 +201,7 @@ export function SavingsDashboard() {
           <Card className="border-primary/20">
             <CardContent className="pt-4 pb-3">
               <p className="text-xs text-muted-foreground mb-0.5">Yield Earned</p>
-              <p className="text-lg font-semibold text-primary tabular-nums">
+              <p className="text-lg font-semibold text-primary-dark tabular-nums">
                 +${formatUnits(yield_)}
               </p>
             </CardContent>
