@@ -9,7 +9,7 @@ Live: **https://celosave-two.vercel.app**
 ## Features
 
 ### Save
-Deposit USDT into Aave V3 on Celo mainnet and earn yield automatically. Gas fees are paid in USDT via Celo's fee abstraction (no CELO required). Withdraw any time; a 0.30% protocol fee is taken on the yield portion only.
+Deposit USDT or USDC into Aave V3 on Celo mainnet and earn yield automatically. Gas fees are paid in USDT/USDC via Celo's fee abstraction (no CELO required in MiniPay). Withdraw any time — you receive the full balance.
 
 ### Auto-Save (Superfluid)
 Stream USDC to the protocol treasury as a recurring monthly savings target. Uses Superfluid CFA v1 on Celo — wraps USDC → USDCx on first subscription, then creates a per-second flow. Cancel any time on-chain.
@@ -47,6 +47,7 @@ celosave/
 
 | Contract | Address |
 |---|---|
+| **CeloSaveRegistry** | `0x9213CBE6c3aFf7c1422038d91ECb2362E6907e83` |
 | Aave V3 Pool | `0x3E59A31363E2ad014dcbc521c4a0d5757d9f3402` |
 | Aave Data Provider | `0x2e0f8D3B1631296cC7c56538D6Eb6032601E15ED` |
 | USDT | `0x48065fbbe25f71c9282ddf5e1cd6d6a887483d5e` |
@@ -79,8 +80,7 @@ Backend environment variables (copy from `.env.example` or create `packages/back
 PORT=3001
 ALCHEMY_API_KEY=your_alchemy_key
 SERVER_WALLET_ADDRESS=0x...        # receives x402 analytics payments
-TREASURY_ADDRESS=0x...             # receives yield fees and bill-pay markup
-TREASURY_PRIVATE_KEY=0x...         # signs treasury transactions
+TREASURY_ADDRESS=0x...             # receives bill-pay markup
 AT_API_KEY=your_at_key             # Africa's Talking
 AT_USERNAME=sandbox                # or your AT username
 AT_ENV=sandbox                     # sandbox | production
@@ -105,6 +105,6 @@ Connect the GitHub repo in the Railway dashboard. Railway uses `railway.json` at
 
 | Action | Fee |
 |---|---|
-| Yield withdrawal | 0.30% of yield earned |
 | Airtime top-up | 1.50% markup on USD amount |
+| Auto-Save subscription | Variable (user sets monthly stream amount) |
 | Analytics API | $0.001 USDC per request (x402) |
