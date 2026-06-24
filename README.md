@@ -108,3 +108,8 @@ Connect the GitHub repo in the Railway dashboard. Railway uses `railway.json` at
 | Airtime top-up | 1.50% markup on USD amount |
 | Auto-Save subscription | Variable (user sets monthly stream amount) |
 | Analytics API | $0.001 USDC per request (x402) |
+
+---
+
+## 👤 Author
+Built by [@wkalidev](https://github.com/wkalidev) — zcodebase.eth
