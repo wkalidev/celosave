@@ -55,7 +55,10 @@ export function SavingsDashboard() {
   const { balance: aTokenBalance, refetch: refetchAToken } = useATokenBalance(selectedToken);
   const { balance: walletBalance, refetch: refetchWallet } = useTokenBalance(selectedToken);
 
-  const principal = address ? getPrincipal(chainId ?? celo.id, address, selectedToken) : 0n;
+  const storedPrincipal = address ? getPrincipal(chainId ?? celo.id, address, selectedToken) : 0n;
+  // Fall back to treating the full balance as principal when localStorage has no record.
+  // This avoids showing the entire balance as "yield" for users whose deposit predates tracking.
+  const principal = storedPrincipal > 0n ? storedPrincipal : aTokenBalance;
   const yield_ = aTokenBalance > principal ? aTokenBalance - principal : 0n;
 
   function handleSuccess() {
