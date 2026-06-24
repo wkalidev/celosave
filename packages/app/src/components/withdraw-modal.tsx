@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/sheet";
 import { useWithdraw } from "@/hooks/useWithdraw";
 import { useAccount } from "wagmi";
+import { useIsMiniPay } from "@/hooks/useMiniPay";
 import { getPrincipal } from "@/lib/savings-store";
 import { formatUnits } from "@/lib/aave-utils";
 import type { SupportedToken } from "@/lib/contracts";
@@ -25,6 +26,7 @@ interface WithdrawModalProps {
 export function WithdrawModal({ open, token, onClose, onSuccess, aTokenBalance }: WithdrawModalProps) {
   const { address, chainId } = useAccount();
   const { withdraw, step, error, reset } = useWithdraw(token);
+  const isMiniPay = useIsMiniPay();
 
   const principal = address ? getPrincipal(chainId ?? 42220, address, token) : 0n;
   const yield_ = aTokenBalance > principal ? aTokenBalance - principal : 0n;
@@ -71,6 +73,12 @@ export function WithdrawModal({ open, token, onClose, onSuccess, aTokenBalance }
           </div>
         ) : (
           <div className="flex flex-col gap-5">
+            {!isMiniPay && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-700">
+                This wallet needs CELO for gas. CIP-64 gasless transactions only work in MiniPay.
+              </div>
+            )}
+
             <div className="bg-muted rounded-xl p-4 space-y-3 text-sm">
               <div className="flex justify-between text-base font-semibold">
                 <span>Total balance</span>

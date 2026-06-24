@@ -115,9 +115,10 @@ export const superTokenAbi = [
 // Seconds per month (30 days) for flow rate conversion
 export const SECONDS_PER_MONTH = 2_592_000n;
 
-// Convert a monthly USD amount (6-decimal raw) to per-second flow rate
+// Convert a monthly USD amount (6-decimal raw) to per-second flow rate.
+// Ceiling division so the actual streamed amount is >= the requested amount.
 export function monthlyToFlowRate(usdcRawPerMonth: bigint): bigint {
-  return usdcRawPerMonth / SECONDS_PER_MONTH;
+  return (usdcRawPerMonth + SECONDS_PER_MONTH - 1n) / SECONDS_PER_MONTH;
 }
 
 // Convert a per-second flow rate back to monthly USD (6-decimal raw)

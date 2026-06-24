@@ -5,7 +5,7 @@ import { useAccount } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useIsMiniPay } from "@/hooks/useMiniPay";
 import { useSuperfluidStream } from "@/hooks/useSuperfluidStream";
-import { monthlyToFlowRate } from "@/lib/sf-abis";
+import { monthlyToFlowRate, flowRateToMonthly } from "@/lib/sf-abis";
 import { TREASURY } from "@/lib/contracts";
 
 const MONTHLY_PRESETS_USDC_RAW = [
@@ -46,6 +46,8 @@ export function SubscriptionsDashboard() {
 
   const flowRate = monthlyToFlowRate(effectiveRaw);
   const tooSmall = flowRate <= 0n;
+  // Actual monthly amount that will stream (may differ from preset due to integer arithmetic)
+  const actualMonthlyRaw = tooSmall ? 0n : flowRateToMonthly(flowRate);
 
   if (!isConnected) {
     return (
@@ -204,20 +206,22 @@ export function SubscriptionsDashboard() {
       {effectiveRaw > 0n && (
         <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-sm space-y-1.5">
           <div className="flex justify-between">
-            <span className="text-gray-500">Monthly stream</span>
+            <span className="text-gray-500">You will stream</span>
             <span className="font-medium">
-              ${(Number(effectiveRaw) / 1e6).toFixed(2)} USDC
+              {tooSmall ? "—" : `$${(Number(actualMonthlyRaw) / 1e6).toFixed(2)} USDC/mo`}
             </span>
           </div>
           <div className="flex justify-between">
             <span className="text-gray-500">Per second</span>
-            <span className="font-mono">
-              {tooSmall ? "—" : `${flowRate.toString()} units`}
+            <span className="font-mono text-xs">
+              {tooSmall ? "—" : `${flowRate.toString()} raw/s`}
             </span>
           </div>
           <div className="flex justify-between">
             <span className="text-gray-500">Upfront wrap</span>
-            <span>${(Number(effectiveRaw) * 2 / 1e6).toFixed(2)} USDC (2 months)</span>
+            <span>
+              {tooSmall ? "—" : `$${(Number(actualMonthlyRaw) * 2 / 1e6).toFixed(2)} USDC (2 months)`}
+            </span>
           </div>
           {!usdcx.isDeployed && (
             <div className="border-t border-gray-200 pt-2 text-xs text-amber-600">

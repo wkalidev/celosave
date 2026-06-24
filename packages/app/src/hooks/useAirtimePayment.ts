@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useAccount, useWalletClient, usePublicClient } from "wagmi";
+import { celo } from "wagmi/chains";
 import { encodeFunctionData } from "viem";
 import { erc20Abi } from "@/lib/abis";
 import { USDT, USDT_FEE_ADAPTER } from "@/lib/contracts";
@@ -41,7 +42,7 @@ export interface AirtimeResult {
 export function useAirtimePayment() {
   const { address } = useAccount();
   const { data: walletClient } = useWalletClient();
-  const publicClient = usePublicClient();
+  const publicClient = usePublicClient({ chainId: celo.id });
 
   const [step, setStep] = useState<AirtimeStep>("idle");
   const [quote, setQuote] = useState<AirtimeQuote | null>(null);

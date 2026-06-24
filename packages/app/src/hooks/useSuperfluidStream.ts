@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useAccount, useWalletClient, usePublicClient, useReadContract } from "wagmi";
+import { celo } from "wagmi/chains";
 import {
   SF_CFA_FORWARDER,
   SF_SUPER_TOKEN_FACTORY,
@@ -49,7 +50,7 @@ const MAX_UINT256 = 2n ** 256n - 1n;
 export function useSuperfluidStream() {
   const { address } = useAccount();
   const { data: walletClient } = useWalletClient();
-  const publicClient = usePublicClient();
+  const publicClient = usePublicClient({ chainId: celo.id });
 
   const [step, setStep] = useState<StreamStep>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -62,6 +63,7 @@ export function useSuperfluidStream() {
     abi: superTokenFactoryAbi,
     functionName: "computeCanonicalERC20WrapperAddress",
     args: [USDC],
+    chainId: celo.id,
   });
 
   useEffect(() => {
@@ -77,6 +79,7 @@ export function useSuperfluidStream() {
     abi: cfaForwarderAbi,
     functionName: "getFlowInfo",
     args: [usdcx.address ?? "0x0000000000000000000000000000000000000000", address ?? "0x0000000000000000000000000000000000000000", TREASURY],
+    chainId: celo.id,
     query: { enabled: !!usdcx.address && !!address },
   });
 

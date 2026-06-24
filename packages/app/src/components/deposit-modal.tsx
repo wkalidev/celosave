@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/sheet";
 import { useDeposit } from "@/hooks/useDeposit";
 import { useTokenBalance } from "@/hooks/useAaveData";
+import { useIsMiniPay } from "@/hooks/useMiniPay";
 import { formatUnits, parseTokenAmount } from "@/lib/aave-utils";
 import type { SupportedToken } from "@/lib/contracts";
 
@@ -26,6 +27,7 @@ export function DepositModal({ open, token, onClose, onSuccess, apy }: DepositMo
   const [inputValue, setInputValue] = useState("");
   const { balance } = useTokenBalance(token);
   const { deposit, step, error, reset } = useDeposit(token);
+  const isMiniPay = useIsMiniPay();
 
   const amount = inputValue ? parseTokenAmount(inputValue) : 0n;
   const hasBalance = amount > 0n && amount <= balance;
@@ -76,6 +78,12 @@ export function DepositModal({ open, token, onClose, onSuccess, apy }: DepositMo
             {balance === 0n && (
               <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-700">
                 Your wallet has no {token}. Add {token} on Celo to start saving.
+              </div>
+            )}
+
+            {!isMiniPay && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-700">
+                This wallet needs CELO for gas. CIP-64 gasless transactions only work in MiniPay.
               </div>
             )}
 
