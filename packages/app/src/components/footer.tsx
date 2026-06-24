@@ -25,6 +25,15 @@ export function Footer() {
           <Link href="/privacy" className="hover:text-foreground transition-colors">
             Privacy Policy
           </Link>
+          <span>·</span>
+          <a
+            href="https://github.com/wkalidev/celosave/issues"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-foreground transition-colors"
+          >
+            Support
+          </a>
         </div>
       </div>
     </footer>

@@ -10,6 +10,6 @@
     "backend": "pnpm --filter backend dev"
   },
   "devDependencies": {
-    "typescript": "^5.2.2"
+    "typescript": "5.9.3"
   }
 }
