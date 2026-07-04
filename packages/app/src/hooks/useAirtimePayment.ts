@@ -6,6 +6,8 @@ import { celo } from "wagmi/chains";
 import { encodeFunctionData } from "viem";
 import { erc20Abi } from "@/lib/abis";
 import { USDT, USDT_FEE_ADAPTER } from "@/lib/contracts";
+import { toFriendlyError } from "@/lib/error-utils";
+import { assertValidPaymentAddress } from "@/lib/address-utils";
 
 const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:3001";
 
@@ -80,22 +82,29 @@ export function useAirtimePayment() {
     setError(null);
 
     try {
+      assertValidPaymentAddress(quote.treasuryAddress);
+
       const amount = BigInt(quote.usdtRaw);
 
-      // Transfer USDT to treasury (airtime cost + 1.5% markup)
-      const txHash = await walletClient.sendTransaction({
-        account: address,
-        to: USDT,
-        data: encodeFunctionData({
-          abi: erc20Abi,
-          functionName: "transfer",
-          args: [quote.treasuryAddress, amount],
-        }),
-        // @ts-ignore — Celo CIP-64 extension
-        feeCurrency: USDT_FEE_ADAPTER,
-      });
-
-      await publicClient.waitForTransactionReceipt({ hash: txHash });
+      let txHash: `0x${string}`;
+      try {
+        // Transfer USDT to treasury (airtime cost + 1.5% markup)
+        txHash = await walletClient.sendTransaction({
+          account: address,
+          to: USDT,
+          chain: celo,
+          data: encodeFunctionData({
+            abi: erc20Abi,
+            functionName: "transfer",
+            args: [quote.treasuryAddress, amount],
+          }),
+          // @ts-ignore — Celo CIP-64 extension
+          feeCurrency: USDT_FEE_ADAPTER,
+        });
+        await publicClient.waitForTransactionReceipt({ hash: txHash });
+      } catch (e: unknown) {
+        throw new Error(toFriendlyError(e));
+      }
 
       setStep("confirming");
 

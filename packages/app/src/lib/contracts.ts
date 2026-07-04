@@ -8,6 +8,12 @@ export const USDC = "0xcebA9300f2b948710d2653dD7B07f33A8B32118C" as const;
 export const USDT_FEE_ADAPTER = "0x0e2a3e05bc9a16f5292a6170456a710cb89c6f72" as const;
 export const USDC_FEE_ADAPTER = "0x2F25deB3848C207fc8E0c34035B3Ba7fC157602B" as const;
 
+// cUSD — Celo's original native stablecoin. Natively whitelisted as a fee
+// currency since before CIP-64, so the token address itself is used directly
+// as `feeCurrency` (no separate adapter contract needed, unlike USDT/USDC).
+// Source: docs.celo.org/build-with-ai/fee-abstraction — verify on celoscan.io.
+export const CUSD = "0x765DE816845861e75A25fCA122bb6898B8B1282" as const;
+
 // Source: bgd-labs/aave-address-book AaveV3Celo.ts
 export const AAVE_POOL = "0x3E59A31363E2ad014dcbc521c4a0d5757d9f3402" as const;
 export const AAVE_DATA_PROVIDER = "0x2e0f8D3B1631296cC7c56538D6Eb6032601E15ED" as const;
