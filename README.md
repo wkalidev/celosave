@@ -80,11 +80,13 @@ Backend environment variables (copy from `.env.example` or create `packages/back
 PORT=3001
 ALCHEMY_API_KEY=your_alchemy_key
 SERVER_WALLET_ADDRESS=0x...        # receives x402 analytics payments
-TREASURY_ADDRESS=0x...             # receives bill-pay markup
+TREASURY_ADDRESS=0x...             # receives bill-pay markup — required, no fallback
 AT_API_KEY=your_at_key             # Africa's Talking
 AT_USERNAME=sandbox                # or your AT username
 AT_ENV=sandbox                     # sandbox | production
-SANDBOX_SKIP_VERIFY=true           # set false in production
+SANDBOX_SKIP_VERIFY=true           # set false in production — the process refuses to boot if this is true and NODE_ENV=production
+CORS_ORIGIN=https://your-frontend.example.com   # comma-separated list of allowed origins; unset = no cross-origin access allowed
+DB_PATH=./data/celosave.sqlite     # SQLite file used for payment replay protection — point this at a persistent volume in production (see Deployment)
 ```
 
 ---
@@ -98,6 +100,8 @@ Root directory: `packages/app`. Vercel auto-deploys on push to `main`.
 **Backend → Railway**
 
 Connect the GitHub repo in the Railway dashboard. Railway uses `railway.json` at the repo root and `packages/backend/Dockerfile`. Set the environment variables above in the Railway service settings (Variables tab). Health check path: `/health`.
+
+**Important:** attach a [Railway Volume](https://docs.railway.app/reference/volumes) to the backend service and set `DB_PATH` to a file inside it (e.g. `/data/celosave.sqlite`). Without a mounted volume, the container filesystem is ephemeral and the payment-replay-protection database is wiped on every redeploy — it only survives simple process restarts within the same container, not a full redeploy.
 
 ---
 

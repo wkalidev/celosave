@@ -1,8 +1,13 @@
 import { Router, Request, Response } from "express";
+import rateLimit from "express-rate-limit";
 import { fetchProtocolStats } from "../services/protocol-stats";
 import { verifyUsdcTransfer } from "../services/celo-usdc";
+import { reserveAnalyticsPayment } from "../lib/payments";
+import { x402PayloadSchema } from "../lib/validation";
 
 const router = Router();
+
+const protocolLimiter = rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: true, legacyHeaders: false });
 
 // $0.001 USDC per analytics request (1000 raw units, 6 decimals)
 const ANALYTICS_PRICE_RAW = 1000n;
@@ -35,7 +40,7 @@ function x402Response(res: Response, resource: string) {
 // GET /api/analytics/protocol
 // Without payment → 402 with payment requirements (x402 spec)
 // With X-PAYMENT: base64({"txHash":"0x..."}) → verified stats
-router.get("/protocol", async (req: Request, res: Response) => {
+router.get("/protocol", protocolLimiter, async (req: Request, res: Response) => {
   const paymentHeader = req.headers["x-payment"] as string | undefined;
 
   if (!paymentHeader) {
@@ -43,15 +48,18 @@ router.get("/protocol", async (req: Request, res: Response) => {
   }
 
   // Decode and verify payment
-  let txHash: string;
+  let decoded: unknown;
   try {
-    const decoded = Buffer.from(paymentHeader, "base64").toString("utf-8");
-    const payload = JSON.parse(decoded) as { txHash: string };
-    txHash = payload.txHash;
-    if (!txHash?.startsWith("0x")) throw new Error("invalid txHash");
+    decoded = JSON.parse(Buffer.from(paymentHeader, "base64").toString("utf-8"));
   } catch {
     return res.status(400).json({ error: "Invalid X-PAYMENT header format" });
   }
+
+  const parsed = x402PayloadSchema.safeParse(decoded);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Invalid X-PAYMENT payload" });
+  }
+  const { txHash } = parsed.data;
 
   if (!SERVER_WALLET) {
     return res.status(503).json({ error: "SERVER_WALLET_ADDRESS not configured" });
@@ -67,6 +75,14 @@ router.get("/protocol", async (req: Request, res: Response) => {
     return res.status(402).json({
       error: `Payment verification failed: ${verification.reason}`,
     });
+  }
+
+  // Atomic, synchronous reservation — same replay-prevention pattern as
+  // airtime payments. One verified USDC transfer can only ever pay for one
+  // analytics response.
+  const reservation = reserveAnalyticsPayment(txHash, ANALYTICS_PRICE_RAW);
+  if (!reservation.ok) {
+    return res.status(409).json({ error: "This payment has already been used for a different request" });
   }
 
   try {

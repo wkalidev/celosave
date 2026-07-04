@@ -10,7 +10,9 @@ const USDT = "0x48065fbbe25f71c9282ddf5e1cd6d6a887483d5e";
 // Source: docs.celo.org
 const USDC = "0xcebA9300f2b948710d2653dD7B07f33A8B32118C";
 
-const TREASURY = process.env.TREASURY_ADDRESS ?? "0x3AC95343494979d0c92195D387D278DCB3d6d595";
+// No hardcoded fallback: assertProductionConfigSafe() refuses to boot the
+// process if this is unset, so by the time routes run it is always present.
+const TREASURY = process.env.TREASURY_ADDRESS as string;
 const DECIMALS = 6;
 const RAY = 10n ** 27n;
 const SECONDS_PER_YEAR = 31_536_000;
