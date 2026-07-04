@@ -19,7 +19,7 @@ export default function PrivacyPage() {
           on the Celo blockchain.
         </p>
         <p>
-          The App stores minimal data in your browser's local storage (e.g. a flag
+          The App stores minimal data in your browser&apos;s local storage (e.g. a flag
           indicating you have completed onboarding) to improve user experience. This data
           never leaves your device.
         </p>
@@ -29,7 +29,7 @@ export default function PrivacyPage() {
         <h2 className="font-semibold text-base">2. Airtime Top-Ups</h2>
         <p>
           When you use the Pay Bills feature, you provide a phone number and country code.
-          This information is sent to our backend and passed to Africa's Talking solely to
+          This information is sent to our backend and passed to Africa&apos;s Talking solely to
           fulfil the airtime request. We do not store or sell this information.
         </p>
       </section>
@@ -40,7 +40,7 @@ export default function PrivacyPage() {
         <ul className="list-disc list-inside space-y-1 text-muted-foreground">
           <li>Aave V3 (Celo) — on-chain lending protocol</li>
           <li>Superfluid (Celo) — on-chain streaming payments</li>
-          <li>Africa's Talking — airtime delivery</li>
+          <li>Africa&apos;s Talking — airtime delivery</li>
           <li>Alchemy — Celo RPC provider</li>
           <li>Vercel — frontend hosting</li>
           <li>Railway — backend hosting</li>

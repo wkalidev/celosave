@@ -13,7 +13,7 @@ export default function TermsPage() {
       <section className="space-y-2">
         <h2 className="font-semibold text-base">1. Acceptance</h2>
         <p>
-          By accessing or using CeloSave ("the App"), you agree to these Terms of Service. If
+          By accessing or using CeloSave (&quot;the App&quot;), you agree to these Terms of Service. If
           you do not agree, do not use the App.
         </p>
       </section>
@@ -23,7 +23,7 @@ export default function TermsPage() {
         <p>
           CeloSave is a non-custodial application that facilitates deposits into the Aave V3
           lending protocol on the Celo blockchain, recurring savings streams via Superfluid,
-          and mobile airtime purchases via Africa's Talking. The App does not custody your
+          and mobile airtime purchases via Africa&apos;s Talking. The App does not custody your
           funds. All transactions are executed on-chain by your own wallet.
         </p>
       </section>
