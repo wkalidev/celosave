@@ -24,6 +24,7 @@ export function useRegistration() {
         const hash = await walletClient.sendTransaction({
           account: address,
           to: REGISTRY,
+          chain: celo,
           data: encodeFunctionData({ abi: registryAbi, functionName: "register" }),
           // @ts-ignore — CIP-64: pay gas in USDT inside MiniPay; ignored by browser wallets
           feeCurrency: USDT_FEE_ADAPTER,

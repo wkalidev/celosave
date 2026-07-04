@@ -11,12 +11,15 @@ export function liquidityRateToAPY(liquidityRate: bigint): number {
   return apy;
 }
 
-// Format a raw token amount (6 decimals) to a display string
-export function formatUnits(amount: bigint, decimals = DECIMALS): string {
+// Format a raw token amount (6 decimals) to a display string. `precision`
+// controls how many fractional digits are kept — default 2 for display;
+// pass the full decimals count when the string will be parsed back into an
+// exact amount (e.g. a Max button), so no dust is lost in the round trip.
+export function formatUnits(amount: bigint, decimals = DECIMALS, precision = 2): string {
   const divisor = 10n ** BigInt(decimals);
   const whole = amount / divisor;
   const frac = amount % divisor;
-  const fracStr = frac.toString().padStart(decimals, "0").slice(0, 2);
+  const fracStr = frac.toString().padStart(decimals, "0").slice(0, precision);
   return `${whole}.${fracStr}`;
 }
 

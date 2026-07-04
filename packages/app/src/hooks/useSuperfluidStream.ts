@@ -19,6 +19,7 @@ import {
   formatUsdc,
 } from "@/lib/sf-abis";
 import { erc20Abi } from "@/lib/abis";
+import { toFriendlyError } from "@/lib/error-utils";
 
 export type StreamStep =
   | "idle"
@@ -142,6 +143,7 @@ export function useSuperfluidStream() {
         const deployTx = await walletClient.sendTransaction({
           account: address,
           to: SF_SUPER_TOKEN_FACTORY,
+          chain: celo,
           data: encodeDeploy(),
           // @ts-ignore — CIP-64
           feeCurrency: USDC_FEE_ADAPTER,
@@ -165,6 +167,7 @@ export function useSuperfluidStream() {
       const approveTx = await walletClient.sendTransaction({
         account: address,
         to: USDC,
+        chain: celo,
         data: encodeApprove(usdcxAddr, wrapAmount),
         // @ts-ignore — CIP-64
         feeCurrency: USDC_FEE_ADAPTER,
@@ -176,6 +179,7 @@ export function useSuperfluidStream() {
       const upgradeTx = await walletClient.sendTransaction({
         account: address,
         to: usdcxAddr,
+        chain: celo,
         data: encodeUpgrade(wrapAmount),
         // @ts-ignore — CIP-64
         feeCurrency: USDC_FEE_ADAPTER,
@@ -187,6 +191,7 @@ export function useSuperfluidStream() {
       const flowTx = await walletClient.sendTransaction({
         account: address,
         to: SF_CFA_FORWARDER,
+        chain: celo,
         data: encodeCreateFlow(usdcxAddr, address, TREASURY, flowRate),
         // @ts-ignore — CIP-64
         feeCurrency: USDC_FEE_ADAPTER,
@@ -196,7 +201,7 @@ export function useSuperfluidStream() {
       await refetchFlow();
       setStep("success");
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Subscription failed");
+      setError(toFriendlyError(e));
       setStep("error");
     }
   }
@@ -209,6 +214,7 @@ export function useSuperfluidStream() {
       const deleteTx = await walletClient.sendTransaction({
         account: address,
         to: SF_CFA_FORWARDER,
+        chain: celo,
         data: encodeDeleteFlow(usdcx.address, address, TREASURY),
         // @ts-ignore — CIP-64
         feeCurrency: USDC_FEE_ADAPTER,
@@ -217,7 +223,7 @@ export function useSuperfluidStream() {
       await refetchFlow();
       setStep("cancelled");
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Cancel failed");
+      setError(toFriendlyError(e));
       setStep("error");
     }
   }

@@ -94,6 +94,12 @@ export function BillsDashboard() {
       <div className="flex flex-col gap-4 px-4 py-6 max-w-sm mx-auto">
         <h2 className="text-lg font-semibold">Confirm Payment</h2>
 
+        {!isMiniPay && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-700">
+            This wallet needs CELO for gas. CIP-64 gasless transactions only work in MiniPay.
+          </div>
+        )}
+
         <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-2 text-sm">
           <div className="flex justify-between">
             <span className="text-gray-500">Phone</span>
@@ -156,6 +162,12 @@ export function BillsDashboard() {
   // Idle / error — main form
   return (
     <div className="flex flex-col gap-5 px-4 py-6 max-w-sm mx-auto">
+      {!isMiniPay && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-700">
+          This wallet needs CELO for gas. CIP-64 gasless transactions only work in MiniPay.
+        </div>
+      )}
+
       {/* Tabs */}
       <div className="flex bg-gray-100 rounded-xl p-1 text-sm">
         <button className="flex-1 bg-white rounded-lg py-1.5 font-medium shadow-sm">

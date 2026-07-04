@@ -13,7 +13,7 @@ import { useDeposit } from "@/hooks/useDeposit";
 import { useTokenBalance } from "@/hooks/useAaveData";
 import { useIsMiniPay } from "@/hooks/useMiniPay";
 import { formatUnits, parseTokenAmount } from "@/lib/aave-utils";
-import type { SupportedToken } from "@/lib/contracts";
+import { DECIMALS, type SupportedToken } from "@/lib/contracts";
 
 interface DepositModalProps {
   open: boolean;
@@ -23,12 +23,18 @@ interface DepositModalProps {
   apy: number | null;
 }
 
+// Reserve a small headroom when "Max" is tapped so this deposit's own
+// two-step approve+supply flow doesn't spend the exact balance it also
+// needs to pay its own CIP-64 gas out of.
+const GAS_HEADROOM_RAW = 50_000n; // ~0.05 of a 6-decimal token
+
 export function DepositModal({ open, token, onClose, onSuccess, apy }: DepositModalProps) {
   const [inputValue, setInputValue] = useState("");
   const { balance } = useTokenBalance(token);
   const { deposit, step, error, reset } = useDeposit(token);
   const isMiniPay = useIsMiniPay();
 
+  const maxDepositable = balance > GAS_HEADROOM_RAW ? balance - GAS_HEADROOM_RAW : 0n;
   const amount = inputValue ? parseTokenAmount(inputValue) : 0n;
   const hasBalance = amount > 0n && amount <= balance;
 
@@ -42,7 +48,7 @@ export function DepositModal({ open, token, onClose, onSuccess, apy }: DepositMo
     onSuccess();
   }
 
-  const isProcessing = step === "approving" || step === "supplying";
+  const isProcessing = step === "checking" || step === "approving" || step === "supplying";
 
   return (
     <Sheet open={open} onOpenChange={(v) => !v && handleClose()}>
@@ -93,10 +99,10 @@ export function DepositModal({ open, token, onClose, onSuccess, apy }: DepositMo
                 <span className="text-muted-foreground">Amount ({token})</span>
                 <button
                   className="text-primary-dark font-medium disabled:opacity-40"
-                  onClick={() => setInputValue(formatUnits(balance))}
-                  disabled={balance === 0n}
+                  onClick={() => setInputValue(formatUnits(maxDepositable, DECIMALS, DECIMALS))}
+                  disabled={maxDepositable === 0n}
                 >
-                  Max: {formatUnits(balance)}
+                  Max: {formatUnits(maxDepositable)}
                 </button>
               </div>
               <input
@@ -132,7 +138,9 @@ export function DepositModal({ open, token, onClose, onSuccess, apy }: DepositMo
               <div className="flex items-center gap-3 bg-primary/10 rounded-xl p-4">
                 <Loader2 className="h-5 w-5 animate-spin text-primary shrink-0" />
                 <span className="text-sm font-medium">
-                  {step === "approving"
+                  {step === "checking"
+                    ? "Preparing transaction…"
+                    : step === "approving"
                     ? `Step 1/2 — Approving ${token} spend…`
                     : "Step 2/2 — Supplying to Aave…"}
                 </span>

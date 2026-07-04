@@ -123,6 +123,12 @@ export function SubscriptionsDashboard() {
           Top up by wrapping more USDC at any time.
         </p>
 
+        {!isMiniPay && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-700">
+            This wallet needs CELO for gas to cancel this subscription. CIP-64 gasless transactions only work in MiniPay.
+          </div>
+        )}
+
         {error && (
           <p className="text-sm text-red-500 bg-red-50 border border-red-200 rounded-xl px-3 py-2">
             {error}
@@ -172,6 +178,12 @@ export function SubscriptionsDashboard() {
           Set once — stream USDC every second to earn yield.
         </p>
       </div>
+
+      {!isMiniPay && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-700">
+          This wallet needs CELO for gas. CIP-64 gasless transactions only work in MiniPay.
+        </div>
+      )}
 
       {/* Amount selector */}
       <div className="space-y-2">

@@ -40,7 +40,7 @@ export function WithdrawModal({ open, token, onClose, onSuccess, aTokenBalance }
     onSuccess();
   }
 
-  const isProcessing = step === "withdrawing";
+  const isProcessing = step === "checking" || step === "withdrawing";
 
   return (
     <Sheet open={open} onOpenChange={(v) => !v && handleClose()}>
@@ -103,7 +103,9 @@ export function WithdrawModal({ open, token, onClose, onSuccess, aTokenBalance }
             {isProcessing && (
               <div className="flex items-center gap-3 bg-primary/10 rounded-xl p-4">
                 <Loader2 className="h-5 w-5 animate-spin text-primary shrink-0" />
-                <span className="text-sm font-medium">Withdrawing from Aave…</span>
+                <span className="text-sm font-medium">
+                  {step === "checking" ? "Checking available network fee options…" : "Withdrawing from Aave…"}
+                </span>
               </div>
             )}
 
