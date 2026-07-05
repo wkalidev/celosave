@@ -1,4 +1,4 @@
-import type { PublicClient } from "viem";
+import { isAddress, type PublicClient } from "viem";
 import { erc20Abi } from "./abis";
 import { CUSD, USDT, USDC, USDT_FEE_ADAPTER, USDC_FEE_ADAPTER } from "./contracts";
 
@@ -27,12 +27,24 @@ export async function pickFeeCurrency(
   address: `0x${string}`
 ): Promise<FeeCurrencyChoice | null> {
   for (const candidate of STABLE_CANDIDATES) {
-    const balance = await publicClient.readContract({
-      address: candidate.token,
-      abi: erc20Abi,
-      functionName: "balanceOf",
-      args: [address],
-    });
+    // A malformed candidate address must never take down the whole picker —
+    // skip it and keep trying the rest rather than letting one bad constant
+    // break every withdrawal (this is exactly how a truncated CUSD address
+    // once did).
+    if (!isAddress(candidate.token, { strict: false })) continue;
+
+    let balance: bigint;
+    try {
+      balance = await publicClient.readContract({
+        address: candidate.token,
+        abi: erc20Abi,
+        functionName: "balanceOf",
+        args: [address],
+      });
+    } catch {
+      continue;
+    }
+
     if (balance >= MIN_STABLE_RAW) {
       return { feeCurrency: candidate.adapter, label: candidate.label };
     }
