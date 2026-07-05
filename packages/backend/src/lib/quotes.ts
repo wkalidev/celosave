@@ -13,6 +13,8 @@ export interface Quote {
   localAmount: number;         // airtime in local currency
   localCurrency: string;       // e.g. "NGN"
   expiresAt: number;           // unix ms
+  provider: "zendit" | "at";
+  zenditOfferId?: string;      // set when provider === "zendit"
 }
 
 // In-memory store; a real deployment uses Redis or DB
