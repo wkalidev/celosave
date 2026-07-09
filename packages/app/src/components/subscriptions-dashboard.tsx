@@ -106,7 +106,7 @@ export function SubscriptionsDashboard() {
           <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">
             ⚠ Only {remainingCycles} deposit{remainingCycles === 1 ? "" : "s"} left on your current
             allowance ({formatCusd(allowance)} remaining). Re-approve below to keep Auto-Save going —
-            deposits simply pause, they never fail partway or touch funds you haven't approved.
+            deposits simply pause, they never fail partway or touch funds you haven&apos;t approved.
           </div>
         )}
 
