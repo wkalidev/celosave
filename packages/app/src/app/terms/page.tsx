@@ -22,9 +22,10 @@ export default function TermsPage() {
         <h2 className="font-semibold text-base">2. Nature of the Service</h2>
         <p>
           CeloSave is a non-custodial application that facilitates deposits into the Aave V3
-          lending protocol on the Celo blockchain, recurring savings streams via Superfluid,
-          and mobile airtime purchases via Africa&apos;s Talking. The App does not custody your
-          funds. All transactions are executed on-chain by your own wallet.
+          lending protocol on the Celo blockchain, recurring monthly Auto-Save deposits into
+          your own Aave V3 position, and mobile airtime purchases via Africa&apos;s Talking. The
+          App does not custody your funds. All transactions are executed on-chain by your own
+          wallet.
         </p>
       </section>
 

@@ -39,7 +39,6 @@ export default function PrivacyPage() {
         <p>The App interacts with the following third-party services:</p>
         <ul className="list-disc list-inside space-y-1 text-muted-foreground">
           <li>Aave V3 (Celo) — on-chain lending protocol</li>
-          <li>Superfluid (Celo) — on-chain streaming payments</li>
           <li>Africa&apos;s Talking — airtime delivery</li>
           <li>Alchemy — Celo RPC provider</li>
           <li>Vercel — frontend hosting</li>
