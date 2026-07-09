@@ -11,8 +11,16 @@ Live: **https://celosave-two.vercel.app**
 ### Save
 Deposit USDT or USDC into Aave V3 on Celo mainnet and earn yield automatically. Gas fees are paid in USDT/USDC via Celo's fee abstraction (no CELO required in MiniPay). Withdraw any time — you receive the full balance.
 
-### Auto-Save (Superfluid)
-Stream USDC to the protocol treasury as a recurring monthly savings target. Uses Superfluid CFA v1 on Celo — wraps USDC → USDCx on first subscription, then creates a per-second flow. Cancel any time on-chain.
+### Auto-Save
+Set a fixed monthly cUSD amount once; it deposits automatically into your own Aave V3 position every cycle — non-custodial end to end. You grant `CeloSaveAutoDepositRouter` (`packages/contracts/src/CeloSaveAutoDepositRouter.sol`) a capped, revocable cUSD allowance and an on-chain plan (amount + interval). The contract is immutable — no owner, no admin function, no upgrade path — and never holds cUSD at rest: anyone can permissionlessly trigger an eligible cycle, which atomically pulls exactly your plan's amount and calls Aave's `Pool.supply(cUSD, amount, onBehalfOf: you, 0)` — aTokens are minted straight into your wallet, never CeloSave's. Cancel any time from the UI: it clears your plan and revokes your allowance in two wallet-signed transactions, no backend step.
+
+This replaced an earlier Superfluid-streaming design that turned out to be custodial (streamed funds sat in CeloSave's treasury with no mechanism to actually earn yield in the user's name) — it's fully removed now, not left in as dead code; see git history if you need the old implementation.
+
+**Before deploying the router**, both of the following must pass — see `packages/contracts/README.md` for the full deployment gate and a note on a known upstream Foundry issue currently blocking its fork test suite from running end-to-end on Celo:
+```bash
+cd packages/contracts && forge test --match-path test/CeloSaveAutoDepositRouter.unit.t.sol
+CELO_RPC_URL=https://forno.celo.org pnpm verify:aave-reserve
+```
 
 ### Pay Bills (Africa's Talking)
 Top up mobile airtime in Nigeria, Kenya, Ghana, Uganda, Tanzania, and Rwanda. Pay in USDT; the backend converts to local currency and dispatches via Africa's Talking. A 1.5% markup covers provider fees and treasury.
@@ -48,14 +56,21 @@ celosave/
 | Contract | Address |
 |---|---|
 | **CeloSaveRegistry** | `0x9213CBE6c3aFf7c1422038d91ECb2362E6907e83` |
+| **CeloSaveAutoDepositRouter** | *not yet deployed — see `packages/contracts/README.md` for the deployment gate* |
 | Aave V3 Pool | `0x3E59A31363E2ad014dcbc521c4a0d5757d9f3402` |
+| Aave V3 Pool Addresses Provider | `0x9F7Cf9417D5251C59fE94fB9147feEe1aAd9Cea5` |
 | Aave Data Provider | `0x2e0f8D3B1631296cC7c56538D6Eb6032601E15ED` |
+| cUSD Aave aToken (aCelcUSD) | `0xBba98352628B0B0c4b40583F593fFCb630935a45` |
 | USDT | `0x48065fbbe25f71c9282ddf5e1cd6d6a887483d5e` |
 | USDC | `0xcebA9300f2b948710d2653dD7B07f33A8B32118C` |
 | USDT Fee Adapter | `0x0e2a3e05bc9a16f5292a6170456a710cb89c6f72` |
-| Superfluid Host | `0xA4Ff07cF81C02CFD356184879D953970cA957585` |
-| Superfluid CFA Forwarder | `0xcfA132E353cB4E398080B9700609bb008eceB125` |
-| Protocol Treasury | `0x3AC95343494979d0c92195D387D278DCB3d6d595` |
+| Protocol Treasury | `0x3AC95343494979d0c92195D387D278DCb3d6d595` |
+
+Addresses above are the source of truth as hardcoded in `packages/app/src/lib/contracts.ts`. Re-verify the Aave reserve state cUSD Auto-Save depends on (active/not frozen/not paused/supply-cap headroom) directly against a live Celo RPC any time before deploying the router:
+
+```bash
+CELO_RPC_URL=https://forno.celo.org pnpm verify:aave-reserve
+```
 
 ---
 
@@ -110,7 +125,7 @@ Connect the GitHub repo in the Railway dashboard. Railway uses `railway.json` at
 | Action | Fee |
 |---|---|
 | Airtime top-up | 1.50% markup on USD amount |
-| Auto-Save subscription | Variable (user sets monthly stream amount) |
+| Auto-Save subscription | Variable (user sets monthly deposit amount); router protocol fee is immutable and hard-capped at 1% |
 | Analytics API | $0.001 USDC per request (x402) |
 
 ---
