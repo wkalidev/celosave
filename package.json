@@ -7,10 +7,12 @@
     "dev": "pnpm --filter app dev",
     "build": "pnpm --filter app build",
     "lint": "pnpm --filter app lint",
-    "backend": "pnpm --filter backend dev"
+    "backend": "pnpm --filter backend dev",
+    "verify:aave-reserve": "node scripts/verify-aave-reserve.mjs"
   },
   "devDependencies": {
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "viem": "2.53.1"
   },
   "pnpm": {
     "overrides": {

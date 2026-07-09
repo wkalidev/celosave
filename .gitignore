@@ -22,3 +22,8 @@ Thumbs.db
 packages/contracts/out/
 packages/contracts/cache/
 packages/contracts/.forge-cache/
+# Foundry deps — reinstall with: cd packages/contracts && forge install foundry-rs/forge-std --no-commit
+packages/contracts/lib/
+
+# Claude Code / agent session state — never part of the app
+.claude/
