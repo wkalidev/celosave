@@ -16,7 +16,7 @@ Set a fixed monthly cUSD amount once; it deposits automatically into your own Aa
 
 This replaced an earlier Superfluid-streaming design that turned out to be custodial (streamed funds sat in CeloSave's treasury with no mechanism to actually earn yield in the user's name) — it's fully removed now, not left in as dead code; see git history if you need the old implementation.
 
-**Before deploying the router**, both of the following must pass — see `packages/contracts/README.md` for the full deployment gate and a note on a known upstream Foundry issue currently blocking its fork test suite from running end-to-end on Celo:
+**Deployed and verified on Celo mainnet** at [`0x27FEd876Dbc44BF4D4EC7D1ccfFE1b60FA09fF4f`](https://celoscan.io/address/0x27fed876dbc44bf4d4ec7d1ccffe1b60fa09ff4f#code). Full smoke test passed in production (`setPlan` + `depositFor` executed on mainnet, aTokens landed in the user's wallet, fee landed in treasury). Deposits are triggered by a Railway cron keeper (`packages/backend/src/keeper.ts` — see `packages/backend/KEEPER.md`); because `depositFor` is permissionless, anyone can also trigger an eligible cycle directly if the keeper is ever down. The pre-deployment gate this passed — kept here for anyone re-verifying or redeploying — was:
 ```bash
 cd packages/contracts && forge test --match-path test/CeloSaveAutoDepositRouter.unit.t.sol
 CELO_RPC_URL=https://forno.celo.org pnpm verify:aave-reserve
@@ -56,7 +56,7 @@ celosave/
 | Contract | Address |
 |---|---|
 | **CeloSaveRegistry** | `0x9213CBE6c3aFf7c1422038d91ECb2362E6907e83` |
-| **CeloSaveAutoDepositRouter** | *not yet deployed — see `packages/contracts/README.md` for the deployment gate* |
+| **CeloSaveAutoDepositRouter** | [`0x27FEd876Dbc44BF4D4EC7D1ccfFE1b60FA09fF4f`](https://celoscan.io/address/0x27fed876dbc44bf4d4ec7d1ccffe1b60fa09ff4f#code) — deployed and verified |
 | Aave V3 Pool | `0x3E59A31363E2ad014dcbc521c4a0d5757d9f3402` |
 | Aave V3 Pool Addresses Provider | `0x9F7Cf9417D5251C59fE94fB9147feEe1aAd9Cea5` |
 | Aave Data Provider | `0x2e0f8D3B1631296cC7c56538D6Eb6032601E15ED` |

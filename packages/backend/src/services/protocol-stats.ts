@@ -111,7 +111,13 @@ export async function fetchProtocolStats(): Promise<ProtocolStats> {
       usdcAToken: formatTokenAmount(usdcBal),
     },
     fees: {
-      yieldBps: 30,
+      // No yield fee is currently collected on the plain Save flow (Aave
+      // deposits/withdrawals are direct, no CeloSave contract in the path).
+      // See docs/yield-fee-design.md for the proposed collection mechanism
+      // and why it isn't live yet. Keep this at 0 until that mechanism
+      // actually ships — do not restore a nonzero value here without a
+      // real fee-taking code path to back it.
+      yieldBps: 0,
       billPayBps: 150,
     },
   };

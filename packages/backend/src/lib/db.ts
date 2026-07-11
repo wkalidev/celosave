@@ -41,6 +41,34 @@ export async function initDb(customPath?: string): Promise<Database> {
       amount_raw TEXT NOT NULL,
       created_at INTEGER NOT NULL
     );
+    -- Every address that has ever emitted PlanSet on the AutoDepositRouter.
+    -- This is purely a discovery cache (there's no on-chain enumerable list
+    -- of users) — it is never trusted for eligibility. The keeper always
+    -- re-reads plans(user) live from the contract before triggering a
+    -- deposit, so a stale or incomplete row here can cause a missed cycle
+    -- (caught on the next scan) but never an incorrect deposit.
+    CREATE TABLE IF NOT EXISTS keeper_known_users (
+      address TEXT PRIMARY KEY,
+      first_seen_block INTEGER NOT NULL,
+      first_seen_at INTEGER NOT NULL
+    );
+    -- Small key/value store for keeper cursor state (e.g. last_scanned_block).
+    CREATE TABLE IF NOT EXISTS keeper_state (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+    -- Audit log of every depositFor attempt the keeper has made. Railway logs
+    -- rotate/expire; this table is the durable record for debugging and for
+    -- the "did the keeper actually run" question.
+    CREATE TABLE IF NOT EXISTS keeper_deposit_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_address TEXT NOT NULL,
+      amount_raw TEXT NOT NULL,
+      tx_hash TEXT,
+      status TEXT NOT NULL,
+      error TEXT,
+      created_at INTEGER NOT NULL
+    );
   `);
 
   persistTo(activePath);
