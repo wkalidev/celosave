@@ -23,10 +23,12 @@ export function formatUnits(amount: bigint, decimals = DECIMALS, precision = 2):
   return `${whole}.${fracStr}`;
 }
 
-// Parse a display string to raw token amount (6 decimals)
-export function parseTokenAmount(value: string): bigint {
+// Parse a display string to a raw token amount. `decimals` defaults to 6
+// (USDT/USDC) — pass 18 explicitly for cUSD so the conversion isn't off by
+// 10^12.
+export function parseTokenAmount(value: string, decimals = DECIMALS): bigint {
   const [whole, frac = ""] = value.split(".");
-  const fracPadded = frac.slice(0, DECIMALS).padEnd(DECIMALS, "0");
-  return BigInt(whole || "0") * 10n ** BigInt(DECIMALS) + BigInt(fracPadded);
+  const fracPadded = frac.slice(0, decimals).padEnd(decimals, "0");
+  return BigInt(whole || "0") * 10n ** BigInt(decimals) + BigInt(fracPadded);
 }
 

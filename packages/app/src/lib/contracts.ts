@@ -112,11 +112,20 @@ export const AUTO_DEPOSIT_ROUTER = process.env.NEXT_PUBLIC_AUTO_DEPOSIT_ROUTER_A
 // USDT and USDC both use 6 decimals on Celo (not 18)
 export const DECIMALS = 6;
 
-export type SupportedToken = "USDT" | "USDC";
+// cUSD uses the standard 18 decimals (same as cusd-format.ts's CUSD_DECIMALS).
+export const CUSD_DECIMALS = 18;
+
+export type SupportedToken = "USDT" | "USDC" | "cUSD";
 
 export function getTokenContracts(token: SupportedToken) {
   if (token === "USDC") {
-    return { token: USDC, aToken: USDC_A_TOKEN, feeAdapter: USDC_FEE_ADAPTER };
+    return { token: USDC, aToken: USDC_A_TOKEN, feeAdapter: USDC_FEE_ADAPTER, decimals: DECIMALS };
   }
-  return { token: USDT, aToken: USDT_A_TOKEN, feeAdapter: USDT_FEE_ADAPTER };
+  if (token === "cUSD") {
+    // cUSD has no separate fee-adapter contract — it's natively whitelisted
+    // as a feeCurrency, so the token address itself doubles as the adapter
+    // (same pattern already used in fee-currency.ts and useAutoDeposit.ts).
+    return { token: CUSD, aToken: CUSD_A_TOKEN, feeAdapter: CUSD, decimals: CUSD_DECIMALS };
+  }
+  return { token: USDT, aToken: USDT_A_TOKEN, feeAdapter: USDT_FEE_ADAPTER, decimals: DECIMALS };
 }

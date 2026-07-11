@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { TrendingUp, Wallet, ArrowDownToLine, ArrowUpFromLine, ShieldCheck, Zap, Globe } from "lucide-react";
 import { useAccount, useChainId } from "wagmi";
 import { celo } from "wagmi/chains";
@@ -11,10 +11,11 @@ import { DepositModal } from "@/components/deposit-modal";
 import { WithdrawModal } from "@/components/withdraw-modal";
 import { useAaveAPY, useATokenBalance, useTokenBalance } from "@/hooks/useAaveData";
 import { useIsMiniPay } from "@/hooks/useMiniPay";
+import { useAutoDeposit } from "@/hooks/useAutoDeposit";
 import { getPrincipal } from "@/lib/savings-store";
 import { formatUnits } from "@/lib/aave-utils";
 import { truncateAddress } from "@/lib/app-utils";
-import type { SupportedToken } from "@/lib/contracts";
+import { getTokenContracts, type SupportedToken } from "@/lib/contracts";
 
 function TrustBadge({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
@@ -39,7 +40,7 @@ function WrongNetworkBanner() {
   );
 }
 
-const TOKENS: SupportedToken[] = ["USDT", "USDC"];
+const TOKENS: SupportedToken[] = ["USDT", "USDC", "cUSD"];
 
 export function SavingsDashboard() {
   const { address, isConnected } = useAccount();
@@ -51,9 +52,35 @@ export function SavingsDashboard() {
   const [depositOpen, setDepositOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
 
+  // Land on the cUSD tab automatically for a user with an active Auto-Save
+  // plan — that's where their Auto-Save deposits actually show up, and
+  // without this they'd have no way to find or withdraw that position.
+  // Only forces the tab once per mount so it doesn't fight a user who
+  // deliberately switches to USDT/USDC afterward.
+  const { plan: autoDepositPlan } = useAutoDeposit();
+  const [hasAutoLanded, setHasAutoLanded] = useState(false);
+  useEffect(() => {
+    if (!hasAutoLanded && autoDepositPlan?.active) {
+      setSelectedToken("cUSD");
+      setHasAutoLanded(true);
+    }
+  }, [autoDepositPlan?.active, hasAutoLanded]);
+
+  const { decimals } = getTokenContracts(selectedToken);
   const { apy, isLoading: apyLoading } = useAaveAPY(selectedToken);
   const { balance: aTokenBalance, refetch: refetchAToken } = useATokenBalance(selectedToken);
   const { balance: walletBalance, refetch: refetchWallet } = useTokenBalance(selectedToken);
+
+  // Logged-out headline/table needs all three live APYs, not just the
+  // selected tab's — these hooks must run unconditionally (rules of hooks),
+  // but wagmi/tanstack-query dedupes identical reads so this doesn't add
+  // extra network cost when one of these matches `apy` above.
+  const { apy: usdtApy, isLoading: usdtApyLoading } = useAaveAPY("USDT");
+  const { apy: usdcApy, isLoading: usdcApyLoading } = useAaveAPY("USDC");
+  const { apy: cusdApy, isLoading: cusdApyLoading } = useAaveAPY("cUSD");
+  const allApys = [usdtApy, usdcApy, cusdApy].filter((a): a is number => a !== null);
+  const bestApy = allApys.length ? Math.max(...allApys) : null;
+  const bestApyLoading = usdtApyLoading || usdcApyLoading || cusdApyLoading;
 
   const storedPrincipal = address ? getPrincipal(chainId ?? celo.id, address, selectedToken) : 0n;
   // Fall back to treating the full balance as principal when localStorage has no record.
@@ -76,9 +103,9 @@ export function SavingsDashboard() {
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Save money. Earn yield.</h1>
             <p className="text-sm text-muted-foreground mt-1.5 max-w-xs mx-auto leading-relaxed">
-              Deposit USDT or USDC and earn up to{" "}
+              Deposit USDT, USDC, or cUSD and earn up to{" "}
               <span className="font-semibold text-primary-dark">
-                {apyLoading ? "…" : apy !== null ? `${apy.toFixed(2)}%` : "—"} APY
+                {bestApyLoading ? "…" : bestApy !== null ? `${bestApy.toFixed(2)}%` : "—"} APY
               </span>{" "}
               on Aave V3 — no CELO needed for gas.
             </p>
@@ -87,7 +114,7 @@ export function SavingsDashboard() {
 
         <div className="flex flex-wrap justify-center gap-2 mb-8">
           <TrustBadge icon={<ShieldCheck className="h-3 w-3" />} label="Aave V3 · Audited" />
-          <TrustBadge icon={<Zap className="h-3 w-3" />} label="Gasless in USDT/USDC" />
+          <TrustBadge icon={<Zap className="h-3 w-3" />} label="Gasless in USDT/USDC/cUSD" />
           <TrustBadge icon={<Globe className="h-3 w-3" />} label="Celo Mainnet" />
         </div>
 
@@ -106,12 +133,18 @@ export function SavingsDashboard() {
               </span>
             </div>
             <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">cUSD APY</span>
+              <span className="font-bold text-primary-dark text-base">
+                <ApyLabel token="cUSD" />
+              </span>
+            </div>
+            <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Protocol</span>
               <span className="font-medium">Aave V3 on Celo</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Gas</span>
-              <span className="font-medium">Paid in USDT or USDC</span>
+              <span className="font-medium">Paid in USDT, USDC, or cUSD</span>
             </div>
           </CardContent>
         </Card>
@@ -176,7 +209,7 @@ export function SavingsDashboard() {
           <CardContent className="pb-5">
             <div className="space-y-2">
               <p className="text-4xl font-bold tracking-tight tabular-nums">
-                ${formatUnits(aTokenBalance)}
+                ${formatUnits(aTokenBalance, decimals)}
                 <span className="text-lg font-normal text-muted-foreground ml-1.5">{selectedToken}</span>
               </p>
               <div className="flex items-center gap-2">
@@ -195,14 +228,14 @@ export function SavingsDashboard() {
           <Card className="border-border/60">
             <CardContent className="pt-4 pb-3">
               <p className="text-xs text-muted-foreground mb-0.5">Deposited</p>
-              <p className="text-lg font-semibold tabular-nums">${formatUnits(principal)}</p>
+              <p className="text-lg font-semibold tabular-nums">${formatUnits(principal, decimals)}</p>
             </CardContent>
           </Card>
           <Card className="border-primary/20">
             <CardContent className="pt-4 pb-3">
               <p className="text-xs text-muted-foreground mb-0.5">Yield Earned</p>
               <p className="text-lg font-semibold text-primary-dark tabular-nums">
-                +${formatUnits(yield_)}
+                +${formatUnits(yield_, decimals)}
               </p>
             </CardContent>
           </Card>
@@ -215,7 +248,7 @@ export function SavingsDashboard() {
             <span>Wallet</span>
           </div>
           <span className="text-sm font-semibold tabular-nums">
-            ${formatUnits(walletBalance)} {selectedToken}
+            ${formatUnits(walletBalance, decimals)} {selectedToken}
           </span>
         </div>
 

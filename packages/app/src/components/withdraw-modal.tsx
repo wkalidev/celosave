@@ -13,7 +13,7 @@ import { useAccount } from "wagmi";
 import { useIsMiniPay } from "@/hooks/useMiniPay";
 import { getPrincipal } from "@/lib/savings-store";
 import { formatUnits } from "@/lib/aave-utils";
-import type { SupportedToken } from "@/lib/contracts";
+import { getTokenContracts, type SupportedToken } from "@/lib/contracts";
 
 interface WithdrawModalProps {
   open: boolean;
@@ -27,6 +27,7 @@ export function WithdrawModal({ open, token, onClose, onSuccess, aTokenBalance }
   const { address, chainId } = useAccount();
   const { withdraw, step, error, reset } = useWithdraw(token);
   const isMiniPay = useIsMiniPay();
+  const { decimals } = getTokenContracts(token);
 
   const principal = address ? getPrincipal(chainId ?? 42220, address, token) : 0n;
   const yield_ = aTokenBalance > principal ? aTokenBalance - principal : 0n;
@@ -82,21 +83,21 @@ export function WithdrawModal({ open, token, onClose, onSuccess, aTokenBalance }
             <div className="bg-muted rounded-xl p-4 space-y-3 text-sm">
               <div className="flex justify-between text-base font-semibold">
                 <span>Total balance</span>
-                <span>${formatUnits(aTokenBalance)} {token}</span>
+                <span>${formatUnits(aTokenBalance, decimals)} {token}</span>
               </div>
               <div className="border-t pt-3 space-y-2">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Principal</span>
-                  <span>${formatUnits(principal)}</span>
+                  <span>${formatUnits(principal, decimals)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Yield earned</span>
-                  <span className="text-primary-dark">+${formatUnits(yield_)}</span>
+                  <span className="text-primary-dark">+${formatUnits(yield_, decimals)}</span>
                 </div>
               </div>
               <div className="border-t pt-3 flex justify-between font-semibold">
                 <span>You receive</span>
-                <span>${formatUnits(aTokenBalance)} {token}</span>
+                <span>${formatUnits(aTokenBalance, decimals)} {token}</span>
               </div>
             </div>
 

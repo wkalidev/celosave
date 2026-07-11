@@ -13,7 +13,7 @@ import { useDeposit } from "@/hooks/useDeposit";
 import { useTokenBalance } from "@/hooks/useAaveData";
 import { useIsMiniPay } from "@/hooks/useMiniPay";
 import { formatUnits, parseTokenAmount } from "@/lib/aave-utils";
-import { DECIMALS, type SupportedToken } from "@/lib/contracts";
+import { getTokenContracts, type SupportedToken } from "@/lib/contracts";
 
 interface DepositModalProps {
   open: boolean;
@@ -33,9 +33,14 @@ export function DepositModal({ open, token, onClose, onSuccess, apy }: DepositMo
   const { balance } = useTokenBalance(token);
   const { deposit, step, error, reset } = useDeposit(token);
   const isMiniPay = useIsMiniPay();
+  const { decimals } = getTokenContracts(token);
 
-  const maxDepositable = balance > GAS_HEADROOM_RAW ? balance - GAS_HEADROOM_RAW : 0n;
-  const amount = inputValue ? parseTokenAmount(inputValue) : 0n;
+  // cUSD (18 decimals) needs a much smaller headroom reservation than a
+  // 6-decimal stablecoin — scale the reserve to the token's own decimals
+  // instead of reusing the 6-decimal-sized constant as-is.
+  const gasHeadroomRaw = decimals === 6 ? GAS_HEADROOM_RAW : GAS_HEADROOM_RAW * 10n ** BigInt(decimals - 6);
+  const maxDepositable = balance > gasHeadroomRaw ? balance - gasHeadroomRaw : 0n;
+  const amount = inputValue ? parseTokenAmount(inputValue, decimals) : 0n;
   const hasBalance = amount > 0n && amount <= balance;
 
   function handleClose() {
@@ -99,10 +104,10 @@ export function DepositModal({ open, token, onClose, onSuccess, apy }: DepositMo
                 <span className="text-muted-foreground">Amount ({token})</span>
                 <button
                   className="text-primary-dark font-medium disabled:opacity-40"
-                  onClick={() => setInputValue(formatUnits(maxDepositable, DECIMALS, DECIMALS))}
+                  onClick={() => setInputValue(formatUnits(maxDepositable, decimals, decimals))}
                   disabled={maxDepositable === 0n}
                 >
-                  Max: {formatUnits(maxDepositable)}
+                  Max: {formatUnits(maxDepositable, decimals)}
                 </button>
               </div>
               <input

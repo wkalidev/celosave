@@ -168,7 +168,7 @@ export function SubscriptionsDashboard() {
     const copy = {
       subscribed: { icon: "✅", title: "Auto-Save active!", body: "Your monthly plan is set — deposits will supply straight into your own Aave position." },
       deposited: { icon: "💰", title: "Deposit sent", body: "This cycle's deposit has been supplied to your own Aave position." },
-      cancelled: { icon: "⏹️", title: "Auto-Save cancelled", body: "Future deposits are stopped and your allowance has been revoked. Anything already in Aave is still yours — withdraw it any time from the Save tab." },
+      cancelled: { icon: "⏹️", title: "Auto-Save cancelled", body: "Future deposits are stopped and your allowance has been revoked. Anything already in Aave is still yours — withdraw it any time from the cUSD tab on the Save page." },
     }[step];
 
     return (

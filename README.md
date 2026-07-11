@@ -9,7 +9,7 @@ Live: **https://celosave-two.vercel.app**
 ## Features
 
 ### Save
-Deposit USDT or USDC into Aave V3 on Celo mainnet and earn yield automatically. Gas fees are paid in USDT/USDC via Celo's fee abstraction (no CELO required in MiniPay). Withdraw any time — you receive the full balance.
+Deposit USDT, USDC, or cUSD into Aave V3 on Celo mainnet and earn yield automatically. Gas fees are paid in whichever of the three you're depositing, via Celo's fee abstraction (no CELO required in MiniPay). Withdraw any time — you receive the full balance. The cUSD tab is also where an Auto-Save plan's deposits land, since Auto-Save supplies cUSD to this same Aave position.
 
 ### Auto-Save
 Set a fixed monthly cUSD amount once; it deposits automatically into your own Aave V3 position every cycle — non-custodial end to end. You grant `CeloSaveAutoDepositRouter` (`packages/contracts/src/CeloSaveAutoDepositRouter.sol`) a capped, revocable cUSD allowance and an on-chain plan (amount + interval). The contract is immutable — no owner, no admin function, no upgrade path — and never holds cUSD at rest: anyone can permissionlessly trigger an eligible cycle, which atomically pulls exactly your plan's amount and calls Aave's `Pool.supply(cUSD, amount, onBehalfOf: you, 0)` — aTokens are minted straight into your wallet, never CeloSave's. Cancel any time from the UI: it clears your plan and revokes your allowance in two wallet-signed transactions, no backend step.
