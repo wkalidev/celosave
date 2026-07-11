@@ -94,12 +94,41 @@ Dockerfile but with a different start command and a cron schedule instead of
 always-on deploy:
 
 1. In the Railway project, **New Service → GitHub Repo** (same repo).
-2. Set the service's build to use `packages/backend/Dockerfile` (same as the
-   web service).
-3. Override the service's **start command** to:
+2. **Do not just set the start command in the UI.** The repo root has a
+   `railway.json` (config-as-code) that already sets `startCommand: node
+   packages/backend/dist/index.js` for the web service. Config-as-code takes
+   precedence over UI settings, and both services point at the same repo —
+   so a UI-only start command override on the keeper service gets silently
+   ignored, and the keeper service ends up booting the web server instead
+   of the keeper (this happened on first deploy: the crash trace showed
+   `dist/index.js` running, demanding `TREASURY_ADDRESS`, a web-only var the
+   keeper doesn't need — see `assertKeeperConfigSafe` vs.
+   `assertProductionConfigSafe` in `src/lib/config-guard.ts`, which are
+   deliberately separate for exactly this reason).
+
+   Instead, add a second config-as-code file, e.g. `railway.keeper.json`, at
+   the repo root:
+   ```json
+   {
+     "$schema": "https://railway.app/railway.schema.json",
+     "build": {
+       "builder": "DOCKERFILE",
+       "dockerfilePath": "packages/backend/Dockerfile"
+     },
+     "deploy": {
+       "startCommand": "node packages/backend/dist/keeper.js"
+     }
+   }
    ```
-   node packages/backend/dist/keeper.js
-   ```
+   No `healthcheckPath` or `restartPolicy` — this is a run-to-completion
+   cron job, not an always-on service; those fields are web-service-only
+   concerns. Point the keeper service's **Settings → Config-as-code Path**
+   at this file. Confirm from the service's build/deploy logs that it's
+   actually reading `railway.keeper.json`, not silently falling back to the
+   root `railway.json` again.
+3. Set the service's build to use `packages/backend/Dockerfile` (same as the
+   web service) — this comes from the config-as-code file above, not a
+   separate UI step.
 4. Under the service's **Settings → Cron Schedule**, set a schedule. A
    reasonable default is every 30 minutes:
    ```
