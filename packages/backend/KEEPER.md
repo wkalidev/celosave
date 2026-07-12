@@ -170,16 +170,30 @@ anything above doesn't match what you see in the dashboard.
 - **No multicall batching for `plans()` reads.** Each known user is read
   individually. Fine at current user counts; a `multicall3` batch read would
   cut RPC round-trips if the user base grows substantially.
-- **Persistence across cron runs is an optimization, not a correctness
-  requirement — but it isn't automatic.** Railway Cron Jobs start a fresh
-  container per scheduled run; without a Railway Volume mounted at the
-  keeper service's `DB_PATH` (see `src/lib/db.ts`), `keeper_state` and
-  `keeper_known_users` reset every run, and `scanForNewUsers` re-scans from
-  `ROUTER_DEPLOY_BLOCK` every time instead of resuming from a cursor. This
-  is slower (redundant log scanning) but never incorrect: eligibility is
-  always re-verified live against the contract regardless of what the local
-  cache remembers (see step 3 above). Mount a volume once re-scanning the
-  full history every run becomes noticeably wasteful — it isn't required to
-  ship this safely. If you do mount one, it does not need to be (and
-  arguably shouldn't be) the same volume as the web service's — the two
-  don't share any state that needs to stay in sync with each other.
+- **A Railway Volume at the keeper service's `DB_PATH` is required, not
+  optional.** This used to be framed as a nice-to-have ("slower but never
+  incorrect") — that stopped being true once `LOG_SCAN_CHUNK_BLOCKS` dropped
+  to `10n` to fit Alchemy's free-tier `eth_getLogs` range cap (see the
+  `LOG_SCAN_CHUNK_BLOCKS` comment in `router-keeper.ts`). Railway Cron Jobs
+  start a fresh container per scheduled run; without a volume mounted at
+  `DB_PATH` (see `src/lib/db.ts`), `keeper_state`'s cursor resets every run,
+  and `scanForNewUsers` re-scans the router's *entire* history from
+  `ROUTER_DEPLOY_BLOCK` every single time — at 10 blocks per call, that's
+  already several thousand sequential `eth_getLogs` requests per run as of
+  this writing, and it grows by roughly 1,700 more every day. That risks
+  blowing through free-tier rate limits and single-run execution time on
+  its own, independent of the range-cap issue that prompted the chunk-size
+  fix. Mount the volume before relying on this in steady state. It does not
+  need to be (and arguably shouldn't be) the same volume as the web
+  service's — the two don't share any state that needs to stay in sync.
+  Eligibility itself is still always re-verified live against the contract
+  regardless of cursor state (see step 3 above) — a missing volume can
+  cause redundant scanning or a slow/rate-limited run, never an incorrect
+  deposit.
+- **One-time backfill cost.** The first run after the volume is mounted
+  still has to scan from `ROUTER_DEPLOY_BLOCK` forward once — at 10 blocks
+  per call, expect on the order of thousands of sequential requests for
+  that single run. Every run after that only covers the blocks since the
+  last tick (a few dozen requests at a 30-minute cadence), because the
+  cursor will actually persist. Watch that first run's duration in case it
+  approaches a Railway execution-time ceiling.

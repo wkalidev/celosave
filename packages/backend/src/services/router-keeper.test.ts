@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from "vites
 import fs from "fs";
 import os from "os";
 import path from "path";
+import { InvalidRequestRpcError } from "viem";
 import { initDb, closeDb, getDb, persist } from "../lib/db";
 import { recordKnownUser } from "../lib/keeper-store";
 
@@ -12,6 +13,7 @@ const ROUTER_ADDRESS = "0x27FEd876Dbc44BF4D4EC7D1ccfFE1b60FA09fF4f";
 // module-load time, so it must be set before the module is imported — a
 // static top-of-file import would be hoisted ahead of this assignment.
 // Same pattern as packages/app/src/hooks/useAutoDeposit.test.ts.
+let scanForNewUsers: typeof import("./router-keeper").scanForNewUsers;
 let getEligibleDeposits: typeof import("./router-keeper").getEligibleDeposits;
 let triggerDeposit: typeof import("./router-keeper").triggerDeposit;
 let checkGasBalance: typeof import("./router-keeper").checkGasBalance;
@@ -19,7 +21,8 @@ let checkGasBalance: typeof import("./router-keeper").checkGasBalance;
 beforeAll(async () => {
   process.env.AUTO_DEPOSIT_ROUTER_ADDRESS = ROUTER_ADDRESS;
   await initDb(TEST_DB_PATH);
-  const mod = await import("./router-keeper");
+  const mod = await import("./router-keeper.js");
+  scanForNewUsers = mod.scanForNewUsers;
   getEligibleDeposits = mod.getEligibleDeposits;
   triggerDeposit = mod.triggerDeposit;
   checkGasBalance = mod.checkGasBalance;
@@ -32,6 +35,10 @@ beforeAll(async () => {
 // tripping the test timeout. Start every test with a clean table.
 beforeEach(() => {
   getDb().run("DELETE FROM keeper_known_users");
+  // scanForNewUsers reads its starting block from keeper_state — clear it
+  // too, or a cursor left behind by one test changes another test's
+  // computed fromBlock.
+  getDb().run("DELETE FROM keeper_state");
   persist();
 });
 
@@ -55,6 +62,67 @@ function mockPublicClient(planByAddress: Record<string, readonly [bigint, bigint
     }),
   } as unknown as import("viem").PublicClient;
 }
+
+describe("scanForNewUsers", () => {
+  // No persisted cursor (keeper_state cleared in beforeEach) — scanning
+  // always starts from the router's deploy block, 71_726_465n, matching the
+  // constant hardcoded in router-keeper.ts.
+  const DEPLOY_BLOCK = 71_726_465n;
+
+  it("requests eth_getLogs in chunks no larger than the free-tier cap (10 blocks)", async () => {
+    const getLogs = vi.fn().mockResolvedValue([]);
+    const client = {
+      getBlockNumber: vi.fn().mockResolvedValue(DEPLOY_BLOCK + 25n), // 26-block range
+      getLogs,
+    } as unknown as import("viem").PublicClient;
+
+    await scanForNewUsers(client);
+
+    // 26 blocks at a 10-block chunk size -> 3 calls: [0,9], [10,19], [20,25].
+    expect(getLogs).toHaveBeenCalledTimes(3);
+    const ranges: [bigint, bigint][] = getLogs.mock.calls.map((call) => {
+      const args = call[0] as { fromBlock: bigint; toBlock: bigint };
+      return [args.fromBlock, args.toBlock];
+    });
+    expect(ranges).toEqual([
+      [DEPLOY_BLOCK, DEPLOY_BLOCK + 9n],
+      [DEPLOY_BLOCK + 10n, DEPLOY_BLOCK + 19n],
+      [DEPLOY_BLOCK + 20n, DEPLOY_BLOCK + 25n],
+    ]);
+    // No call ever spans more than 10 blocks inclusive.
+    for (const [from, to] of ranges) {
+      expect(to - from + 1n).toBeLessThanOrEqual(10n);
+    }
+  });
+
+  it("records a user discovered in a PlanSet log", async () => {
+    const user = "0x7777777777777777777777777777777777777d";
+    const client = {
+      getBlockNumber: vi.fn().mockResolvedValue(DEPLOY_BLOCK),
+      getLogs: vi.fn().mockResolvedValue([{ args: { user }, blockNumber: DEPLOY_BLOCK }]),
+    } as unknown as import("viem").PublicClient;
+
+    const result = await scanForNewUsers(client);
+    expect(result.newUsersFound).toBe(1);
+
+    const { getKnownUsers } = await import("../lib/keeper-store.js");
+    expect(getKnownUsers()).toContain(user.toLowerCase());
+  });
+
+  it("does not retry when getLogs is rejected as malformed for the RPC tier", async () => {
+    const tierError = new InvalidRequestRpcError(new Error("block range too large for free tier"));
+    const getLogs = vi.fn().mockRejectedValue(tierError);
+    const client = {
+      getBlockNumber: vi.fn().mockResolvedValue(DEPLOY_BLOCK + 25n),
+      getLogs,
+    } as unknown as import("viem").PublicClient;
+
+    await expect(scanForNewUsers(client)).rejects.toBe(tierError);
+    // Fails fast on the very first chunk — no retries burned on a request
+    // that would fail identically every time.
+    expect(getLogs).toHaveBeenCalledTimes(1);
+  });
+});
 
 describe("getEligibleDeposits", () => {
   it("includes an active plan whose nextExecutionTime has already passed", async () => {

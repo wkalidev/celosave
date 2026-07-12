@@ -43,4 +43,53 @@ describe("withRetry", () => {
     await expect(withRetry(fn, { baseDelayMs: 1 })).rejects.toThrow();
     expect(fn).toHaveBeenCalledTimes(3);
   });
+
+  it("fails immediately, with no retries, when isRetryable returns false", async () => {
+    const fn = vi.fn().mockRejectedValue(new Error("malformed request"));
+    await expect(
+      withRetry(fn, { attempts: 5, baseDelayMs: 1, isRetryable: () => false })
+    ).rejects.toThrow("malformed request");
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not call onRetry when isRetryable returns false", async () => {
+    const onRetry = vi.fn();
+    const fn = vi.fn().mockRejectedValue(new Error("malformed request"));
+    await expect(
+      withRetry(fn, { attempts: 5, baseDelayMs: 1, isRetryable: () => false, onRetry })
+    ).rejects.toThrow();
+    expect(onRetry).not.toHaveBeenCalled();
+  });
+
+  it("still retries normally when isRetryable returns true", async () => {
+    let calls = 0;
+    const fn = vi.fn().mockImplementation(async () => {
+      calls++;
+      if (calls < 3) throw new Error("transient");
+      return "ok";
+    });
+    const result = await withRetry(fn, { attempts: 5, baseDelayMs: 1, isRetryable: () => true });
+    expect(result).toBe("ok");
+    expect(fn).toHaveBeenCalledTimes(3);
+  });
+
+  it("can classify per-error — retries one error type but not another", async () => {
+    class FatalError extends Error {}
+    let calls = 0;
+    const fn = vi.fn().mockImplementation(async () => {
+      calls++;
+      if (calls === 1) throw new Error("transient, retry me");
+      throw new FatalError("malformed, do not retry");
+    });
+    await expect(
+      withRetry(fn, {
+        attempts: 5,
+        baseDelayMs: 1,
+        isRetryable: (e) => !(e instanceof FatalError),
+      })
+    ).rejects.toThrow("malformed, do not retry");
+    // First call fails transiently (retried), second call fails fatally
+    // (not retried) — exactly 2 calls total, not 5.
+    expect(fn).toHaveBeenCalledTimes(2);
+  });
 });

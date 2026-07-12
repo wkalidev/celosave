@@ -1,4 +1,4 @@
-import { createPublicClient, createWalletClient, http, parseAbiItem } from "viem";
+import { createPublicClient, createWalletClient, http, parseAbiItem, InvalidRequestRpcError } from "viem";
 import type { Address, PublicClient, WalletClient } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { celo } from "viem/chains";
@@ -33,11 +33,27 @@ import {
 
 const ROUTER_ADDRESS = process.env.AUTO_DEPOSIT_ROUTER_ADDRESS as Address;
 
-// How many blocks to request per eth_getLogs call. Most RPC providers
-// (Alchemy included) cap log-range queries — chunking keeps every call well
-// under typical limits regardless of provider, and keeps a single slow
-// request from timing out.
-const LOG_SCAN_CHUNK_BLOCKS = 5_000n;
+// How many blocks to request per eth_getLogs call. Sized to the tightest
+// known limit, not a typical one: Alchemy's free tier rejects eth_getLogs
+// with a range over 10 blocks (confirmed live — an earlier 5,000-block
+// chunk failed every call with InvalidRequestRpcError; see KEEPER.md). A
+// paid tier would allow far larger chunks, but this keeper is meant to run
+// on the free tier, so it stays this conservative even though it costs more
+// round-trips. This only matters for catching up — once the scan cursor
+// (see keeper-store.ts) is caught up and actually persists between runs,
+// each cycle only covers the handful of blocks since the last run.
+const LOG_SCAN_CHUNK_BLOCKS = 10n;
+
+// True for a genuinely transient RPC failure worth retrying (timeouts,
+// dropped connections, rate limiting, provider hiccups). False for a
+// request the provider rejected outright as malformed for the current
+// plan/tier — e.g. a block range over the free-tier cap. That kind of
+// rejection is deterministic: the exact same request will fail the exact
+// same way every time, so retrying it just burns attempts and backoff time
+// for nothing. Used as the `isRetryable` predicate on every RPC call below.
+function isTransientRpcError(e: unknown): boolean {
+  return !(e instanceof InvalidRequestRpcError);
+}
 
 // Warn (not fail) when the keeper wallet's own gas balance drops below this —
 // an early signal to top it up before deposits actually start failing.
@@ -76,6 +92,7 @@ export async function scanForNewUsers(publicClient: PublicClient): Promise<{
 }> {
   const latestBlock = await withRetry(() => publicClient.getBlockNumber(), {
     onRetry: (attempt, e) => console.warn(`[keeper] getBlockNumber retry ${attempt}:`, e),
+    isRetryable: isTransientRpcError,
   });
 
   const cursor = getLastScannedBlock();
@@ -101,7 +118,10 @@ export async function scanForNewUsers(publicClient: PublicClient): Promise<{
           fromBlock: chunkStart,
           toBlock: chunkEnd,
         }),
-      { onRetry: (attempt, e) => console.warn(`[keeper] getLogs retry ${attempt} (${chunkStart}-${chunkEnd}):`, e) }
+      {
+        onRetry: (attempt, e) => console.warn(`[keeper] getLogs retry ${attempt} (${chunkStart}-${chunkEnd}):`, e),
+        isRetryable: isTransientRpcError,
+      }
     );
 
     for (const log of logs) {
@@ -145,7 +165,10 @@ export async function getEligibleDeposits(publicClient: PublicClient): Promise<E
             functionName: "plans",
             args: [user as Address],
           }),
-        { onRetry: (attempt, e) => console.warn(`[keeper] plans(${user}) retry ${attempt}:`, e) }
+        {
+          onRetry: (attempt, e) => console.warn(`[keeper] plans(${user}) retry ${attempt}:`, e),
+          isRetryable: isTransientRpcError,
+        }
       );
       const [monthlyAmount, , nextExecutionTime, active] = plan;
       if (active && nowSeconds >= nextExecutionTime) {
@@ -185,13 +208,17 @@ export async function triggerDeposit(
           chain: celo,
           account: walletClient.account!,
         }),
-      { onRetry: (attempt, e) => console.warn(`[keeper] depositFor(${plan.user}) send retry ${attempt}:`, e) }
+      {
+        onRetry: (attempt, e) => console.warn(`[keeper] depositFor(${plan.user}) send retry ${attempt}:`, e),
+        isRetryable: isTransientRpcError,
+      }
     );
 
     const receipt = await withRetry(() => publicClient.waitForTransactionReceipt({ hash: txHash }), {
       attempts: 5,
       baseDelayMs: 2000,
       onRetry: (attempt, e) => console.warn(`[keeper] waitForTransactionReceipt retry ${attempt}:`, e),
+      isRetryable: isTransientRpcError,
     });
 
     if (receipt.status === "success") {
