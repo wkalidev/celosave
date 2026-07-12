@@ -3,7 +3,7 @@ import type { Address, PublicClient, WalletClient } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { celo } from "viem/chains";
 import { routerAbi } from "../lib/router-abi";
-import { withRetry } from "../lib/retry";
+import { withRetry, sleep } from "../lib/retry";
 import {
   getLastScannedBlock,
   setLastScannedBlock,
@@ -44,6 +44,37 @@ const ROUTER_ADDRESS = process.env.AUTO_DEPOSIT_ROUTER_ADDRESS as Address;
 // each cycle only covers the handful of blocks since the last run.
 const LOG_SCAN_CHUNK_BLOCKS = 10n;
 
+// Delay between consecutive eth_getLogs calls during a scan. Fixing the
+// chunk size alone (above) wasn't sufficient in production: firing hundreds
+// or thousands of correctly-sized 10-block chunks back-to-back with no
+// pacing still spiked well past a free-tier RPC's sustained burst-rate cap
+// (observed: ~3.3K CU/s against a 500 CU/s limit — a rate problem, not a
+// quota problem; the same account was at 4% of its monthly budget). This
+// paces calls to stay comfortably under that regardless of the exact
+// per-call CU cost. Tunable via env once real throughput numbers are
+// visible on the RPC provider's dashboard.
+const LOG_SCAN_DELAY_MS = Number(process.env.KEEPER_LOG_SCAN_DELAY_MS ?? 400);
+
+// Hard ceiling on how many blocks a single run will scan, no matter how
+// large the backlog since the last persisted cursor has grown. Without
+// this, a keeper whose cursor never persists between runs (see the volume
+// note in KEEPER.md) — or one that's simply been offline a while — computes
+// an ever-growing range on every run, which both takes longer each time and
+// risks the same burst-rate problem all over again even with correct
+// pacing. This bounds any single run's call count and wall-clock time;
+// catching up on a large backlog then happens incrementally across
+// multiple runs instead of one unbounded one. Tunable via env.
+//
+// IMPORTANT: this cap only helps across MULTIPLE runs if the scan cursor
+// actually persists between them (i.e. a Railway Volume is mounted at this
+// service's DB_PATH — see KEEPER.md). Without a persisted cursor, capped
+// discovery restarts from ROUTER_DEPLOY_BLOCK every run and effectively
+// never scans past the first MAX_BLOCKS_PER_RUN blocks after deployment —
+// any user whose PlanSet lands later than that would never be discovered
+// by this keeper (they can still always trigger their own deposit from the
+// UI — see the module doc comment above). The volume mount is not optional.
+const MAX_BLOCKS_PER_RUN = BigInt(process.env.KEEPER_MAX_BLOCKS_PER_RUN ?? 3_000);
+
 // True for a genuinely transient RPC failure worth retrying (timeouts,
 // dropped connections, rate limiting, provider hiccups). False for a
 // request the provider rejected outright as malformed for the current
@@ -70,12 +101,34 @@ function rpcUrl(): string {
   return `https://celo-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`;
 }
 
+// Log-scan discovery (scanForNewUsers) runs against a separate RPC from the
+// funds-adjacent calls below (plans() reads, depositFor sends, receipt
+// waits). It's deliberately the highest-volume thing this keeper does, and
+// it's also the one part where degrading gracefully is fine by design — a
+// missed or incomplete scan costs a missed cycle, never an incorrect
+// deposit (see the module doc comment above). Splitting it off a separate
+// endpoint means its volume doesn't compete with the Alchemy budget the
+// funds-adjacent calls depend on, and vice versa: if this public endpoint
+// has a bad day, deposit-triggering for already-known users is unaffected.
+// Defaults to Celo's public full node, already used elsewhere in this repo
+// (see packages/contracts/README.md, scripts/verify-aave-reserve.mjs).
+// Overridable via env, but — unlike ALCHEMY_API_KEY/KEEPER_PRIVATE_KEY/
+// AUTO_DEPOSIT_ROUTER_ADDRESS — not required by assertKeeperConfigSafe(),
+// since it has a working default and isn't security-critical.
+function logScanRpcUrl(): string {
+  return process.env.KEEPER_LOG_SCAN_RPC_URL ?? "https://forno.celo.org";
+}
+
 function getClients(): { publicClient: PublicClient; walletClient: WalletClient } {
   const transport = http(rpcUrl());
   const publicClient = createPublicClient({ chain: celo, transport }) as PublicClient;
   const account = privateKeyToAccount(process.env.KEEPER_PRIVATE_KEY as `0x${string}`);
   const walletClient = createWalletClient({ account, chain: celo, transport }) as WalletClient;
   return { publicClient, walletClient };
+}
+
+function getLogScanClient(): PublicClient {
+  return createPublicClient({ chain: celo, transport: http(logScanRpcUrl()) }) as PublicClient;
 }
 
 const PLAN_SET_EVENT = parseAbiItem(
@@ -102,12 +155,17 @@ export async function scanForNewUsers(publicClient: PublicClient): Promise<{
     return { newUsersFound: 0, scannedFrom: fromBlock, scannedTo: latestBlock };
   }
 
+  // Cap this run's scan to MAX_BLOCKS_PER_RUN even if the backlog since the
+  // cursor is larger — see that constant's doc comment above.
+  const runTarget =
+    fromBlock + MAX_BLOCKS_PER_RUN - 1n < latestBlock ? fromBlock + MAX_BLOCKS_PER_RUN - 1n : latestBlock;
+
   let newUsersFound = 0;
   let chunkStart = fromBlock;
 
-  while (chunkStart <= latestBlock) {
-    const chunkEnd = chunkStart + LOG_SCAN_CHUNK_BLOCKS - 1n > latestBlock
-      ? latestBlock
+  while (chunkStart <= runTarget) {
+    const chunkEnd = chunkStart + LOG_SCAN_CHUNK_BLOCKS - 1n > runTarget
+      ? runTarget
       : chunkStart + LOG_SCAN_CHUNK_BLOCKS - 1n;
 
     const logs = await withRetry(
@@ -135,9 +193,15 @@ export async function scanForNewUsers(publicClient: PublicClient): Promise<{
     // mid-scan on a large backlog doesn't force re-scanning from the start.
     setLastScannedBlock(chunkEnd);
     chunkStart = chunkEnd + 1n;
+
+    // Pace consecutive calls — see LOG_SCAN_DELAY_MS's doc comment. Skipped
+    // after the final chunk of the run, since there's nothing left to wait for.
+    if (chunkStart <= runTarget && LOG_SCAN_DELAY_MS > 0) {
+      await sleep(LOG_SCAN_DELAY_MS);
+    }
   }
 
-  return { newUsersFound, scannedFrom: fromBlock, scannedTo: latestBlock };
+  return { newUsersFound, scannedFrom: fromBlock, scannedTo: runTarget };
 }
 
 export interface EligiblePlan {
@@ -252,12 +316,16 @@ export async function checkGasBalance(publicClient: PublicClient, walletClient: 
 export async function runKeeperCycle(): Promise<void> {
   const startedAt = Date.now();
   const { publicClient, walletClient } = getClients();
+  const logScanClient = getLogScanClient();
 
   console.log(`[keeper] run started at ${new Date(startedAt).toISOString()}`);
 
   await checkGasBalance(publicClient, walletClient);
 
-  const scanResult = await scanForNewUsers(publicClient);
+  // Discovery runs against logScanClient (forno by default), not the
+  // Alchemy-backed publicClient used below — see logScanRpcUrl()'s doc
+  // comment.
+  const scanResult = await scanForNewUsers(logScanClient);
   console.log(
     `[keeper] scanned blocks ${scanResult.scannedFrom}-${scanResult.scannedTo}, ${scanResult.newUsersFound} new user(s) discovered`
   );

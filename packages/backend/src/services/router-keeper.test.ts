@@ -20,6 +20,13 @@ let checkGasBalance: typeof import("./router-keeper").checkGasBalance;
 
 beforeAll(async () => {
   process.env.AUTO_DEPOSIT_ROUTER_ADDRESS = ROUTER_ADDRESS;
+  // No real pacing delay in tests (would just slow the suite down for no
+  // benefit — the delay's existence/placement is what's under test, not its
+  // literal duration). A small-but-not-tiny cap so the existing chunk-math
+  // test (26-block range) stays well under it, while still being small
+  // enough that a dedicated test below can exceed it and prove capping works.
+  process.env.KEEPER_LOG_SCAN_DELAY_MS = "0";
+  process.env.KEEPER_MAX_BLOCKS_PER_RUN = "1000";
   await initDb(TEST_DB_PATH);
   const mod = await import("./router-keeper.js");
   scanForNewUsers = mod.scanForNewUsers;
@@ -93,6 +100,26 @@ describe("scanForNewUsers", () => {
     for (const [from, to] of ranges) {
       expect(to - from + 1n).toBeLessThanOrEqual(10n);
     }
+  });
+
+  it("caps a single run's scan to MAX_BLOCKS_PER_RUN even when the backlog is far larger", async () => {
+    const getLogs = vi.fn().mockResolvedValue([]);
+    const client = {
+      // 50,001-block backlog — far more than KEEPER_MAX_BLOCKS_PER_RUN=1000
+      // (set in beforeAll), simulating an unpersisted cursor / long-offline
+      // keeper against a router that's been live a while.
+      getBlockNumber: vi.fn().mockResolvedValue(DEPLOY_BLOCK + 50_000n),
+      getLogs,
+    } as unknown as import("viem").PublicClient;
+
+    const result = await scanForNewUsers(client);
+
+    // 1000-block cap at a 10-block chunk size -> exactly 100 calls, not
+    // 5,001 — this is the direct fix for firing thousands of getLogs calls
+    // in one run and getting rate-limited (429) regardless of how correctly
+    // each individual call is sized.
+    expect(getLogs).toHaveBeenCalledTimes(100);
+    expect(result.scannedTo).toBe(DEPLOY_BLOCK + 999n);
   });
 
   it("records a user discovered in a PlanSet log", async () => {

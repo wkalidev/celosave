@@ -62,14 +62,51 @@ own CELO gas to call the permissionless `depositFor`. It:
 
 ## Environment variables (keeper-specific)
 
+Required — `src/keeper.ts` refuses to run (throws before doing anything) if
+any of these are missing, see `assertKeeperConfigSafe()`:
+
 | Variable | Purpose |
 |---|---|
 | `AUTO_DEPOSIT_ROUTER_ADDRESS` | The deployed router: `0x27FEd876Dbc44BF4D4EC7D1ccfFE1b60FA09fF4f` |
 | `KEEPER_PRIVATE_KEY` | Gas-only wallet, see above. Never commit this. |
-| `ALCHEMY_API_KEY` | Already used by the main backend service — same RPC. |
+| `ALCHEMY_API_KEY` | Used for the funds-adjacent calls: `plans()` reads, `depositFor` sends, receipt waits. |
 
-`src/keeper.ts` refuses to run (throws before doing anything) if any of
-these are missing — see `assertKeeperConfigSafe()`.
+Optional — all have working defaults, not enforced by `assertKeeperConfigSafe()`:
+
+| Variable | Purpose | Default |
+|---|---|---|
+| `KEEPER_LOG_SCAN_RPC_URL` | RPC used only for `scanForNewUsers`'s discovery scan (`getBlockNumber`/`getLogs`) — deliberately separate from `ALCHEMY_API_KEY` so this service's highest-volume traffic doesn't compete with the funds-adjacent calls' budget. See "Why discovery uses a separate RPC" below. | `https://forno.celo.org` |
+| `KEEPER_LOG_SCAN_DELAY_MS` | Pause between consecutive `eth_getLogs` calls during a scan, to stay under the RPC's sustained burst-rate limit (not just its per-call range cap — see "Two different RPC limits" below). | `400` |
+| `KEEPER_MAX_BLOCKS_PER_RUN` | Ceiling on how many blocks a single run's discovery scan will cover, regardless of how large the backlog since the last cursor has grown. | `3000` |
+
+### Two different RPC limits, not one
+
+Getting a stable scan required fixing two independent constraints, discovered
+one after the other:
+
+1. **Per-call range cap.** Alchemy's free tier rejects any single
+   `eth_getLogs` call spanning more than 10 blocks (`InvalidRequestRpcError`).
+   Fixed by `LOG_SCAN_CHUNK_BLOCKS = 10n` in `router-keeper.ts`.
+2. **Sustained burst-rate cap.** Even with every call correctly sized, firing
+   hundreds or thousands of them back-to-back with no pacing still triggers
+   429s — observed at ~3.3K CU/s against a 500 CU/s limit, a rate problem
+   with plenty of monthly quota left (4% used), not a budget problem. Fixed
+   by `KEEPER_LOG_SCAN_DELAY_MS` pacing between calls, plus
+   `KEEPER_MAX_BLOCKS_PER_RUN` bounding how many calls one run can possibly
+   make in the first place.
+
+### Why discovery uses a separate RPC
+
+`scanForNewUsers` is both the highest-volume thing this keeper does and the
+one part of it that's fine to degrade gracefully — a missed or incomplete
+scan means a missed cycle, never an incorrect deposit (see the "This is a
+convenience, not a trust requirement" section above). Routing it through
+`KEEPER_LOG_SCAN_RPC_URL` (Celo's public full node by default — already used
+elsewhere in this repo for `verify:aave-reserve`, see the root README) keeps
+its volume off the Alchemy budget the funds-adjacent calls
+(`plans()` reads, `depositFor` sends, receipt waits) depend on, and means a
+bad day on the public endpoint doesn't affect triggering deposits for users
+already discovered.
 
 ## Running locally
 
@@ -140,9 +177,10 @@ always-on deploy:
    to exit, which is exactly what `src/keeper.ts` does (`process.exit(0)` on
    success, `process.exit(1)` on a fatal error so Railway's run history
    shows the failure).
-5. Set the three env vars above on this service specifically (Railway
-   service env vars are per-service, not shared automatically with the web
-   service).
+5. Set the three required env vars above on this service specifically
+   (Railway service env vars are per-service, not shared automatically with
+   the web service). The optional ones have working defaults and don't need
+   to be set unless you want to override them.
 6. Give the keeper wallet a small CELO balance before the first scheduled
    run.
 
@@ -171,29 +209,33 @@ anything above doesn't match what you see in the dashboard.
   individually. Fine at current user counts; a `multicall3` batch read would
   cut RPC round-trips if the user base grows substantially.
 - **A Railway Volume at the keeper service's `DB_PATH` is required, not
-  optional.** This used to be framed as a nice-to-have ("slower but never
-  incorrect") — that stopped being true once `LOG_SCAN_CHUNK_BLOCKS` dropped
-  to `10n` to fit Alchemy's free-tier `eth_getLogs` range cap (see the
-  `LOG_SCAN_CHUNK_BLOCKS` comment in `router-keeper.ts`). Railway Cron Jobs
-  start a fresh container per scheduled run; without a volume mounted at
-  `DB_PATH` (see `src/lib/db.ts`), `keeper_state`'s cursor resets every run,
-  and `scanForNewUsers` re-scans the router's *entire* history from
-  `ROUTER_DEPLOY_BLOCK` every single time — at 10 blocks per call, that's
-  already several thousand sequential `eth_getLogs` requests per run as of
-  this writing, and it grows by roughly 1,700 more every day. That risks
-  blowing through free-tier rate limits and single-run execution time on
-  its own, independent of the range-cap issue that prompted the chunk-size
-  fix. Mount the volume before relying on this in steady state. It does not
-  need to be (and arguably shouldn't be) the same volume as the web
-  service's — the two don't share any state that needs to stay in sync.
-  Eligibility itself is still always re-verified live against the contract
-  regardless of cursor state (see step 3 above) — a missing volume can
-  cause redundant scanning or a slow/rate-limited run, never an incorrect
-  deposit.
-- **One-time backfill cost.** The first run after the volume is mounted
-  still has to scan from `ROUTER_DEPLOY_BLOCK` forward once — at 10 blocks
-  per call, expect on the order of thousands of sequential requests for
-  that single run. Every run after that only covers the blocks since the
-  last tick (a few dozen requests at a 30-minute cadence), because the
-  cursor will actually persist. Watch that first run's duration in case it
-  approaches a Railway execution-time ceiling.
+  optional — and `KEEPER_MAX_BLOCKS_PER_RUN` changes what "not optional"
+  means in practice.** Railway Cron Jobs start a fresh container per
+  scheduled run; without a volume mounted at `DB_PATH` (see `src/lib/db.ts`),
+  `keeper_state`'s cursor resets every run. Before the per-run cap existed,
+  that meant an ever-growing full-history rescan every single run — slow,
+  and eventually rate-limited on its own. With the cap in place, a single
+  run is now always bounded (at most `KEEPER_MAX_BLOCKS_PER_RUN` blocks,
+  ~300 `eth_getLogs` calls at the default), so it can no longer crash or
+  time out a run by itself. But without a persisted cursor, that bounded
+  scan re-covers the *same* first `KEEPER_MAX_BLOCKS_PER_RUN` blocks after
+  `ROUTER_DEPLOY_BLOCK` on every run, forever — discovery effectively
+  freezes at that window and never reaches any user whose `PlanSet` lands
+  later. (They can still always trigger their own deposit from the UI —
+  see "This is a convenience, not a trust requirement" above — so this is a
+  missed-discovery risk, never an incorrect-deposit risk.) Mount the volume
+  so multi-run progress actually accumulates. It does not need to be (and
+  arguably shouldn't be) the same volume as the web service's — the two
+  don't share any state that needs to stay in sync.
+- **Backfill takes multiple runs by design, not one.** The first run after
+  the volume is mounted covers only the first `KEEPER_MAX_BLOCKS_PER_RUN`
+  blocks after `ROUTER_DEPLOY_BLOCK` (or after the persisted cursor,
+  whichever is later) — deliberately, so no single run risks a long
+  duration or a rate-limit burst regardless of how large the total backlog
+  has grown. Catching up on a multi-day backlog takes several runs, each
+  covering the next bounded chunk, until the cursor reaches the chain tip;
+  after that, steady-state runs only cover the blocks since the last tick
+  (well under the cap). Raise `KEEPER_MAX_BLOCKS_PER_RUN` if you want fewer,
+  larger catch-up runs — just keep in mind each run's wall-clock time scales
+  with it (~ `blocks / 10 * KEEPER_LOG_SCAN_DELAY_MS`), and shouldn't
+  approach the cron cadence or Railway's execution-time ceiling.
