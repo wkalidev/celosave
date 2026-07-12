@@ -118,32 +118,41 @@ export function SavingsDashboard() {
           <TrustBadge icon={<Globe className="h-3 w-3" />} label="Celo Mainnet" />
         </div>
 
+        {/* text-foreground/70 (not text-muted-foreground) here on purpose: this
+            card's own gradient (from-primary/5 to-primary/10) darkens its
+            background just enough that muted-foreground's ~4.06-4.31:1 against
+            it fails WCAG AA (needs 4.5:1) — that gradient is unique to this
+            card, so it wasn't caught by the earlier contrast pass, which only
+            checked muted-foreground against the page's flat background
+            (4.57:1, passes). foreground/70 clears the same worst-case
+            background at ~7.2:1 and is already used elsewhere in the app
+            (navbar's inactive nav links) for the same "secondary label" role. */}
         <Card className="w-full max-w-sm mb-8 border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10">
           <CardContent className="pt-5 pb-5 space-y-3">
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">USDT APY</span>
+              <span className="text-foreground/70">USDT APY</span>
               <span className="font-bold text-primary-dark text-base">
                 <ApyLabel token="USDT" />
               </span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">USDC APY</span>
+              <span className="text-foreground/70">USDC APY</span>
               <span className="font-bold text-primary-dark text-base">
                 <ApyLabel token="USDC" />
               </span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">cUSD APY</span>
+              <span className="text-foreground/70">cUSD APY</span>
               <span className="font-bold text-primary-dark text-base">
                 <ApyLabel token="cUSD" />
               </span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Protocol</span>
+              <span className="text-foreground/70">Protocol</span>
               <span className="font-medium">Aave V3 on Celo</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Gas</span>
+              <span className="text-foreground/70">Gas</span>
               <span className="font-medium">Paid in USDT, USDC, or cUSD</span>
             </div>
           </CardContent>
