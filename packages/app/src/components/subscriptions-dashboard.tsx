@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useAccount } from "wagmi";
-import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { ConnectButton } from "@/components/connect-button";
 import { useIsMiniPay } from "@/hooks/useMiniPay";
 import { useAutoDeposit, assertValidAddresses, nextDepositLabel } from "@/hooks/useAutoDeposit";
 import { formatCusd, parseCusd } from "@/lib/cusd-format";
@@ -127,7 +127,7 @@ export function SubscriptionsDashboard() {
           </div>
         </div>
 
-        <p className="text-xs text-gray-400 text-center">
+        <p className="text-xs text-gray-500 text-center">
           Non-custodial: this contract never holds your cUSD between deposits. Each cycle pulls
           only the amount you approved and supplies it to Aave in your name — aTokens land in
           your wallet, not CeloSave&apos;s. Cancel any time; it stops future deposits immediately
@@ -137,7 +137,7 @@ export function SubscriptionsDashboard() {
         {isEligibleNow && (
           <button
             onClick={depositNow}
-            className="w-full border border-[#07955F] text-[#07955F] font-semibold rounded-xl py-3 hover:bg-emerald-50 transition-colors"
+            className="w-full border border-[#07955F] text-primary-dark font-semibold rounded-xl py-3 hover:bg-emerald-50 transition-colors"
           >
             Deposit now
           </button>
@@ -281,7 +281,7 @@ export function SubscriptionsDashboard() {
         Start Auto-Save
       </button>
 
-      <p className="text-xs text-center text-gray-400">
+      <p className="text-xs text-center text-gray-500">
         Non-custodial · deposits go straight to your own Aave position · cancel anytime
       </p>
     </div>

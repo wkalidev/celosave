@@ -1,12 +1,27 @@
 "use client";
 
-import { RainbowKitProvider, connectorsForWallets } from "@rainbow-me/rainbowkit";
-import "@rainbow-me/rainbowkit/styles.css";
+import { connectorsForWallets } from "@rainbow-me/rainbowkit";
 import { injectedWallet } from "@rainbow-me/rainbowkit/wallets";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { WagmiProvider, createConfig, http, useConnect } from "wagmi";
 import { celo, celoSepolia } from "wagmi/chains";
+
+// Deliberately NOT importing RainbowKitProvider or its stylesheet here.
+// Wagmi's hooks (useConnect, useAccount, etc. — used throughout the app,
+// including MiniPay's auto-connect below) only need WagmiProvider's
+// context; RainbowKitProvider is purely for RainbowKit's own UI (the
+// connect modal, wallet icons, WalletConnect QR flow), consumed only by
+// RainbowKit's <ConnectButton>. That component and its provider are now
+// scoped together and lazy-loaded in connect-button.tsx /
+// connect-button-lazy.tsx instead of wrapping the whole app here — see
+// those files for why (PageSpeed LCP fix: this stylesheet + modal JS was
+// previously render-blocking on every page for every visitor, including
+// the MiniPay majority who never see it).
+//
+// connectorsForWallets/injectedWallet are just connector factories (no
+// modal UI, no stylesheet) and stay eager here since wagmiConfig needs
+// `connectors` synchronously at module scope, before any component mounts.
 
 const connectors = connectorsForWallets(
   [
@@ -60,10 +75,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   return (
     <WagmiProvider config={wagmiConfig}>
       <QueryClientProvider client={queryClient}>
-        <RainbowKitProvider>
-          {mounted && <WalletProviderInner>{children}</WalletProviderInner>}
-          {!mounted && children}
-        </RainbowKitProvider>
+        {mounted && <WalletProviderInner>{children}</WalletProviderInner>}
+        {!mounted && children}
       </QueryClientProvider>
     </WagmiProvider>
   );

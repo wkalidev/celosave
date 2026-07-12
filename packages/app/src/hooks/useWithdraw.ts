@@ -8,6 +8,7 @@ import { aavePoolAbi } from "@/lib/abis";
 import { AAVE_POOL, getTokenContracts, type SupportedToken } from "@/lib/contracts";
 import { clearPrincipal } from "@/lib/savings-store";
 import { pickFeeCurrency, NO_FEE_CURRENCY_MESSAGE } from "@/lib/fee-currency";
+import { sendCip64Transaction } from "@/lib/cip64";
 import { toFriendlyError } from "@/lib/error-utils";
 import { savePendingTx, loadPendingTx, clearPendingTx } from "@/lib/pending-tx";
 
@@ -75,16 +76,15 @@ export function useWithdraw(token: SupportedToken) {
 
       setStep("withdrawing");
 
-      const withdrawHash = await walletClient.sendTransaction({
+      const withdrawHash = await sendCip64Transaction(walletClient, {
         account: address,
         to: AAVE_POOL,
-        chain: celo,
         data: encodeFunctionData({
           abi: aavePoolAbi,
           functionName: "withdraw",
           args: [tokenAddress, MAX_UINT256, address],
         }),
-        // @ts-ignore — Celo CIP-64: pay gas in whichever currency the wallet can afford
+        // Pay gas in whichever currency the wallet can actually afford.
         feeCurrency: choice.feeCurrency,
       });
 

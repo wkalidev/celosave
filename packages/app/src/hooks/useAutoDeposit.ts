@@ -7,6 +7,7 @@ import { encodeFunctionData, isAddress } from "viem";
 import { erc20Abi } from "@/lib/abis";
 import { routerAbi, DEFAULT_INTERVAL_SECONDS, DEFAULT_APPROVAL_CYCLES } from "@/lib/router-abi";
 import { AUTO_DEPOSIT_ROUTER, CUSD } from "@/lib/contracts";
+import { sendCip64Transaction } from "@/lib/cip64";
 import { toFriendlyError } from "@/lib/error-utils";
 import { savePendingTx, loadPendingTx, clearPendingTx } from "@/lib/pending-tx";
 
@@ -197,34 +198,29 @@ export function useAutoDeposit() {
           // Defensively reset to 0 before setting a new value — some ERC20s
           // revert on approve() when the current allowance is already
           // nonzero and the new value differs. Same pattern as useDeposit.ts.
-          const resetHash = await walletClient.sendTransaction({
+          const resetHash = await sendCip64Transaction(walletClient, {
             account: address,
             to: CUSD,
-            chain: celo,
             data: encodeApprove(AUTO_DEPOSIT_ROUTER, 0n),
-            // @ts-ignore — Celo CIP-64: cUSD is natively whitelisted as feeCurrency
+            // cUSD is natively whitelisted as a CIP-64 feeCurrency.
             feeCurrency: CUSD,
           });
           await publicClient.waitForTransactionReceipt({ hash: resetHash });
         }
-        const approveHash = await walletClient.sendTransaction({
+        const approveHash = await sendCip64Transaction(walletClient, {
           account: address,
           to: CUSD,
-          chain: celo,
           data: encodeApprove(AUTO_DEPOSIT_ROUTER, desiredAllowance),
-          // @ts-ignore — Celo CIP-64
           feeCurrency: CUSD,
         });
         await publicClient.waitForTransactionReceipt({ hash: approveHash });
       }
 
       setStep("setting_plan");
-      const setPlanHash = await walletClient.sendTransaction({
+      const setPlanHash = await sendCip64Transaction(walletClient, {
         account: address,
         to: AUTO_DEPOSIT_ROUTER,
-        chain: celo,
         data: encodeSetPlan(monthlyAmount, DEFAULT_INTERVAL_SECONDS),
-        // @ts-ignore — Celo CIP-64
         feeCurrency: CUSD,
       });
       const pendingKey = `autodeposit:${address}`;
@@ -250,12 +246,10 @@ export function useAutoDeposit() {
     setStep("cancelling");
 
     try {
-      const cancelHash = await walletClient.sendTransaction({
+      const cancelHash = await sendCip64Transaction(walletClient, {
         account: address,
         to: AUTO_DEPOSIT_ROUTER,
-        chain: celo,
         data: encodeCancelPlan(),
-        // @ts-ignore — Celo CIP-64
         feeCurrency: CUSD,
       });
       await publicClient.waitForTransactionReceipt({ hash: cancelHash });
@@ -265,12 +259,10 @@ export function useAutoDeposit() {
       // See cancelPlan()'s doc comment in CeloSaveAutoDepositRouter.sol.
       // Still fully self-service: two wallet-signed transactions, no
       // backend step, same as the old cancel + unwrap flow this replaced.
-      const revokeHash = await walletClient.sendTransaction({
+      const revokeHash = await sendCip64Transaction(walletClient, {
         account: address,
         to: CUSD,
-        chain: celo,
         data: encodeApprove(AUTO_DEPOSIT_ROUTER, 0n),
-        // @ts-ignore — Celo CIP-64
         feeCurrency: CUSD,
       });
       await publicClient.waitForTransactionReceipt({ hash: revokeHash });
@@ -296,12 +288,10 @@ export function useAutoDeposit() {
     setStep("depositing");
 
     try {
-      const depositHash = await walletClient.sendTransaction({
+      const depositHash = await sendCip64Transaction(walletClient, {
         account: address,
         to: AUTO_DEPOSIT_ROUTER,
-        chain: celo,
         data: encodeDepositFor(address, plan.monthlyAmount),
-        // @ts-ignore — Celo CIP-64
         feeCurrency: CUSD,
       });
       await publicClient.waitForTransactionReceipt({ hash: depositHash });

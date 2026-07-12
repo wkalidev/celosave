@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useAccount } from "wagmi";
-import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { ConnectButton } from "@/components/connect-button";
 import { useIsMiniPay } from "@/hooks/useMiniPay";
 import { useAirtimePayment } from "@/hooks/useAirtimePayment";
 import { COUNTRIES } from "@/lib/countries-fe";

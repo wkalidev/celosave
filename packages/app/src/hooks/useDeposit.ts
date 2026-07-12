@@ -7,6 +7,7 @@ import { encodeFunctionData } from "viem";
 import { erc20Abi, aavePoolAbi } from "@/lib/abis";
 import { AAVE_POOL, getTokenContracts, type SupportedToken } from "@/lib/contracts";
 import { addDeposit } from "@/lib/savings-store";
+import { sendCip64Transaction } from "@/lib/cip64";
 import { toFriendlyError } from "@/lib/error-utils";
 import { savePendingTx, loadPendingTx, clearPendingTx } from "@/lib/pending-tx";
 
@@ -79,31 +80,28 @@ export function useDeposit(token: SupportedToken) {
           // Defensively reset a nonzero allowance to 0 before setting a new
           // value — some ERC20s revert on approve() when the current
           // allowance is already nonzero and the new value differs.
-          const resetHash = await walletClient.sendTransaction({
+          const resetHash = await sendCip64Transaction(walletClient, {
             account: address,
             to: tokenAddress,
-            chain: celo,
             data: encodeFunctionData({
               abi: erc20Abi,
               functionName: "approve",
               args: [AAVE_POOL, 0n],
             }),
-            // @ts-ignore — Celo CIP-64: pay gas in stablecoin, no CELO needed
+            // Pay gas in the stablecoin being deposited — no CELO needed.
             feeCurrency: feeAdapter,
           });
           await publicClient.waitForTransactionReceipt({ hash: resetHash });
         }
 
-        const approveHash = await walletClient.sendTransaction({
+        const approveHash = await sendCip64Transaction(walletClient, {
           account: address,
           to: tokenAddress,
-          chain: celo,
           data: encodeFunctionData({
             abi: erc20Abi,
             functionName: "approve",
             args: [AAVE_POOL, amount],
           }),
-          // @ts-ignore — Celo CIP-64: pay gas in stablecoin, no CELO needed
           feeCurrency: feeAdapter,
         });
         await publicClient.waitForTransactionReceipt({ hash: approveHash });
@@ -111,16 +109,14 @@ export function useDeposit(token: SupportedToken) {
 
       setStep("supplying");
 
-      const supplyHash = await walletClient.sendTransaction({
+      const supplyHash = await sendCip64Transaction(walletClient, {
         account: address,
         to: AAVE_POOL,
-        chain: celo,
         data: encodeFunctionData({
           abi: aavePoolAbi,
           functionName: "supply",
           args: [tokenAddress, amount, address, 0],
         }),
-        // @ts-ignore — Celo CIP-64
         feeCurrency: feeAdapter,
       });
 
