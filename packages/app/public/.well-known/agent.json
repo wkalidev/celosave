@@ -1,0 +1,24 @@
+{
+  "type": "Agent",
+  "name": "CeloSave",
+  "description": "MiniPay-native savings app on Celo. Deposit stablecoins (USDT, USDC, cUSD) into Aave V3 and earn yield automatically, set non-custodial recurring Auto-Save deposits, and top up mobile airtime across six African countries — all without holding CELO for gas. Exposes a paid analytics endpoint over x402 (GET /api/analytics/protocol, $0.001 USDC per request).",
+  "image": "https://celosave-two.vercel.app/logo.png",
+  "endpoints": [
+    {
+      "type": "web",
+      "url": "https://celosave-two.vercel.app"
+    },
+    {
+      "type": "api",
+      "url": "https://app-production-6b36.up.railway.app/api/analytics/protocol",
+      "description": "x402-metered protocol analytics — $0.001 USDC per request via X-PAYMENT header"
+    },
+    {
+      "type": "wallet",
+      "address": "0x573e37C8e6d1c78C334D1a8Beb7d1aAa2BA33a0b",
+      "chainId": 42220,
+      "description": "payTo address for x402 analytics payments"
+    }
+  ],
+  "supportedTrust": ["reputation"]
+}
