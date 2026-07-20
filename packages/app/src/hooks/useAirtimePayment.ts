@@ -8,6 +8,7 @@ import { erc20Abi } from "@/lib/abis";
 import { USDT, USDT_FEE_ADAPTER } from "@/lib/contracts";
 import { toFriendlyError } from "@/lib/error-utils";
 import { assertValidPaymentAddress } from "@/lib/address-utils";
+import { tagCalldata } from "@/lib/attribution";
 
 const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:3001";
 
@@ -93,11 +94,13 @@ export function useAirtimePayment() {
           account: address,
           to: USDT,
           chain: celo,
-          data: encodeFunctionData({
+          // Celo Builders attribution tag — no-op until
+          // NEXT_PUBLIC_ATTRIBUTION_TAG is set. See lib/attribution.ts.
+          data: tagCalldata(encodeFunctionData({
             abi: erc20Abi,
             functionName: "transfer",
             args: [quote.treasuryAddress, amount],
-          }),
+          })),
           // @ts-ignore — Celo CIP-64 extension
           feeCurrency: USDT_FEE_ADAPTER,
         });

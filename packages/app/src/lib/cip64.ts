@@ -1,5 +1,6 @@
 import type { WalletClient, SendTransactionParameters } from "viem";
 import { celo } from "wagmi/chains";
+import { tagCalldata } from "./attribution";
 
 // Celo's CIP-64 fee-abstraction transaction type extends the standard EVM
 // transaction with an extra `feeCurrency` field (the ERC20 token gas is
@@ -33,7 +34,10 @@ export function sendCip64Transaction(
     account: request.account,
     to: request.to,
     chain: celo,
-    data: request.data,
+    // Celo Builders attribution tag (ERC-8021), appended once here so every
+    // caller — useDeposit, useAutoDeposit, useWithdraw — is tagged for free.
+    // No-op until NEXT_PUBLIC_ATTRIBUTION_TAG is set. See lib/attribution.ts.
+    data: tagCalldata(request.data),
     feeCurrency: request.feeCurrency,
   } as Cip64SendTransactionParameters;
 

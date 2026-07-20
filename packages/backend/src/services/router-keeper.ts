@@ -1,9 +1,10 @@
-import { createPublicClient, createWalletClient, http, parseAbiItem, InvalidRequestRpcError } from "viem";
+import { createPublicClient, createWalletClient, http, parseAbiItem, encodeFunctionData, InvalidRequestRpcError } from "viem";
 import type { Address, PublicClient, WalletClient } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { celo } from "viem/chains";
 import { routerAbi } from "../lib/router-abi";
 import { withRetry, sleep } from "../lib/retry";
+import { tagCalldata } from "../lib/attribution";
 import {
   getLastScannedBlock,
   setLastScannedBlock,
@@ -262,13 +263,23 @@ export async function triggerDeposit(
   plan: EligiblePlan
 ): Promise<DepositOutcome> {
   try {
+    // Celo Builders attribution tag (ERC-8021), appended to the keeper's own
+    // depositFor calldata — no-op until ATTRIBUTION_TAG is set. See
+    // lib/attribution.ts. Sent via sendTransaction (not writeContract) so we
+    // can append the suffix to the encoded calldata ourselves.
+    const data = tagCalldata(
+      encodeFunctionData({
+        abi: routerAbi,
+        functionName: "depositFor",
+        args: [plan.user, plan.monthlyAmount],
+      })
+    );
+
     const txHash = await withRetry(
       () =>
-        walletClient.writeContract({
-          address: ROUTER_ADDRESS,
-          abi: routerAbi,
-          functionName: "depositFor",
-          args: [plan.user, plan.monthlyAmount],
+        walletClient.sendTransaction({
+          to: ROUTER_ADDRESS,
+          data,
           chain: celo,
           account: walletClient.account!,
         }),

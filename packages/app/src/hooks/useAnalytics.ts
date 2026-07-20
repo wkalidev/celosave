@@ -8,6 +8,7 @@ import { erc20Abi } from "@/lib/abis";
 import { USDC, USDC_FEE_ADAPTER } from "@/lib/contracts";
 import { toFriendlyError } from "@/lib/error-utils";
 import { assertValidPaymentAddress } from "@/lib/address-utils";
+import { tagCalldata } from "@/lib/attribution";
 
 const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:3001";
 
@@ -92,11 +93,15 @@ export function useAnalytics() {
         account: address,
         to: USDC,
         chain: celo,
-        data: encodeFunctionData({
+        // Celo Builders attribution tag — no-op until
+        // NEXT_PUBLIC_ATTRIBUTION_TAG is set. See lib/attribution.ts. This is
+        // the x402 payment itself, worth tagging for the "Most x402
+        // Payments" hackathon track.
+        data: tagCalldata(encodeFunctionData({
           abi: erc20Abi,
           functionName: "transfer",
           args: [payTo, ANALYTICS_PRICE_RAW],
-        }),
+        })),
         // @ts-ignore — CIP-64
         feeCurrency: USDC_FEE_ADAPTER,
       });

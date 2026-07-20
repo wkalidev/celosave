@@ -212,7 +212,7 @@ describe("triggerDeposit", () => {
   it("returns 'success' and logs it when the receipt status is success", async () => {
     const walletClient = {
       account: { address: "0xkeeper" },
-      writeContract: vi.fn().mockResolvedValue("0xTXHASH1"),
+      sendTransaction: vi.fn().mockResolvedValue("0xTXHASH1"),
     } as unknown as import("viem").WalletClient;
     const publicClient = {
       waitForTransactionReceipt: vi.fn().mockResolvedValue({ status: "success" }),
@@ -225,7 +225,7 @@ describe("triggerDeposit", () => {
   it("returns 'reverted' (not 'error') when the tx is mined but reverts on-chain", async () => {
     const walletClient = {
       account: { address: "0xkeeper" },
-      writeContract: vi.fn().mockResolvedValue("0xTXHASH2"),
+      sendTransaction: vi.fn().mockResolvedValue("0xTXHASH2"),
     } as unknown as import("viem").WalletClient;
     const publicClient = {
       waitForTransactionReceipt: vi.fn().mockResolvedValue({ status: "reverted" }),
@@ -238,7 +238,7 @@ describe("triggerDeposit", () => {
   it("returns 'error' when submitting the transaction itself throws", async () => {
     const walletClient = {
       account: { address: "0xkeeper" },
-      writeContract: vi.fn().mockRejectedValue(new Error("network error")),
+      sendTransaction: vi.fn().mockRejectedValue(new Error("network error")),
     } as unknown as import("viem").WalletClient;
     const publicClient = {
       waitForTransactionReceipt: vi.fn(),

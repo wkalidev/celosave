@@ -5,6 +5,7 @@ import { useAccount, useWalletClient, usePublicClient } from "wagmi";
 import { celo } from "wagmi/chains";
 import { encodeFunctionData } from "viem";
 import { REGISTRY, USDT_FEE_ADAPTER, registryAbi } from "@/lib/contracts";
+import { tagCalldata } from "@/lib/attribution";
 
 // Called once per wallet address, ever. Fires in the background on first connection.
 // Emits UserRegistered on the CeloSaveRegistry contract — trackable by Talent/Proof of Ship.
@@ -25,7 +26,9 @@ export function useRegistration() {
           account: address,
           to: REGISTRY,
           chain: celo,
-          data: encodeFunctionData({ abi: registryAbi, functionName: "register" }),
+          // Celo Builders attribution tag — no-op until
+          // NEXT_PUBLIC_ATTRIBUTION_TAG is set. See lib/attribution.ts.
+          data: tagCalldata(encodeFunctionData({ abi: registryAbi, functionName: "register" })),
           // @ts-ignore — CIP-64: pay gas in USDT inside MiniPay; ignored by browser wallets
           feeCurrency: USDT_FEE_ADAPTER,
         });
